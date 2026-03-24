@@ -6,8 +6,9 @@ import functools
 import itertools
 import pathlib
 import xml.etree.ElementTree as ElementTree
+from collections.abc import Hashable
 from dataclasses import dataclass, field
-from typing import Any, Final
+from typing import Final
 
 import des_controller.des as des
 
@@ -18,7 +19,7 @@ class DFA(des.Controller):
 
     @dataclass(frozen=True)
     class State:
-        id: Any
+        id: Hashable
 
     # Base DFA.
     states: Final[set[State]] = field(kw_only=True)

@@ -1,13 +1,13 @@
 """Common components of a Discrete Event Systems (DES)."""
 
 import abc
+from collections.abc import Hashable
 from dataclasses import dataclass
-from typing import Any
 
 
 @dataclass(frozen=True)
 class Event:
-    id: Any
+    id: Hashable
 
 
 class Controller(abc.ABC):
