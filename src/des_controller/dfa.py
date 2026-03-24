@@ -12,14 +12,13 @@ from typing import Any, Final
 import des_controller.des as des
 
 
-@dataclass(frozen=True)
-class State:
-    id: Any
-
-
 @dataclass
 class DFA(des.Controller):
     """Deterministic Finite Automaton (DFA) for Discrete Event Systems (DES)."""
+
+    @dataclass(frozen=True)
+    class State:
+        id: Any
 
     # Base DFA.
     states: Final[set[State]] = field(kw_only=True)
@@ -73,16 +72,16 @@ class DFA(des.Controller):
         marked_states_raw = tree.find("MarkedStates").text.strip()  # pyright: ignore[reportOptionalMemberAccess]
 
         # Parse strings into appropriate formats.
-        states = set(State(s) for s in states_raw.split())
+        states = set(DFA.State(s) for s in states_raw.split())
         events = set(des.Event(e) for e in alphabet_raw.split() if e != "+C+")
 
         transitions = collections.defaultdict(dict)
         for s0, e, s1 in (t.split() for t in transitions_raw.split("\n")):
-            transitions[State(s0)][des.Event(e)] = State(s1)
+            transitions[DFA.State(s0)][des.Event(e)] = DFA.State(s1)
         transitions = dict(transitions)
 
-        initial_state = State(initial_state_raw)
-        marked_states = set(State(s) for s in marked_states_raw.split())
+        initial_state = DFA.State(initial_state_raw)
+        marked_states = set(DFA.State(s) for s in marked_states_raw.split())
         controllable_events = set(des.Event(e) for e, n in itertools.pairwise(alphabet_raw.split()) if n == "+C+")
 
         # Assemble DFA.
