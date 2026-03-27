@@ -13,13 +13,14 @@ from typing import Final
 import des_controller.des as des
 
 
+@dataclass(frozen=True)
+class State:
+    id: Hashable
+
+
 @dataclass
 class DFA(des.Controller):
     """Deterministic Finite Automaton (DFA) for Discrete Event Systems (DES)."""
-
-    @dataclass(frozen=True)
-    class State:
-        id: Hashable
 
     # Base DFA.
     states: Final[set[State]] = field(kw_only=True)
@@ -42,11 +43,14 @@ class DFA(des.Controller):
 
     def update(self, event: des.Event) -> bool:
         """Update current state according to event. Return True if state changed, False otherwised."""
-        enabled_transitions = self.transitions[self.current_state]
-        if event in enabled_transitions:
-            self.current_state = enabled_transitions[event]
-            return True
-        return False
+        if not self.event_is_enabled(event):
+            return False
+        self.current_state = self.transitions[self.current_state][event]
+        return True
+
+    def event_is_enabled(self, event: des.Event) -> bool:
+        """Return True if event is enabled, False otherwise."""
+        return event in self.enabled_events()
 
     def enabled_events(self) -> set[des.Event]:
         """Return set of events which may cause a transition in the current state."""
@@ -73,16 +77,16 @@ class DFA(des.Controller):
         marked_states_raw = tree.find("MarkedStates").text.strip()  # pyright: ignore[reportOptionalMemberAccess]
 
         # Parse strings into appropriate formats.
-        states = set(DFA.State(s) for s in states_raw.split())
+        states = set(State(s) for s in states_raw.split())
         events = set(des.Event(e) for e in alphabet_raw.split() if e != "+C+")
 
         transitions = collections.defaultdict(dict)
         for s0, e, s1 in (t.split() for t in transitions_raw.split("\n")):
-            transitions[DFA.State(s0)][des.Event(e)] = DFA.State(s1)
+            transitions[State(s0)][des.Event(e)] = State(s1)
         transitions = dict(transitions)
 
-        initial_state = DFA.State(initial_state_raw)
-        marked_states = set(DFA.State(s) for s in marked_states_raw.split())
+        initial_state = State(initial_state_raw)
+        marked_states = set(State(s) for s in marked_states_raw.split())
         controllable_events = set(des.Event(e) for e, n in itertools.pairwise(alphabet_raw.split()) if n == "+C+")
 
         # Assemble DFA.
