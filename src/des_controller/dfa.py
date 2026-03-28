@@ -65,10 +65,11 @@ class DFA(des.Controller):
         return self.controllable_events - self.enabled_controllable_events()
 
     @staticmethod
-    def import_faudes_file(path: pathlib.Path) -> DFA:
+    def import_faudes_file(path: pathlib.Path | str) -> DFA:
         """Construct an instance of a DFA from a FAUDES Generator file (.gen)."""
 
         # Extract raw strings from file.
+        # TODO: proper error handling.
         tree = ElementTree.parse(str(path))
         alphabet_raw = tree.find("Alphabet").text.strip()  # pyright: ignore[reportOptionalMemberAccess]
         states_raw = tree.find("States").text.strip()  # pyright: ignore[reportOptionalMemberAccess]
