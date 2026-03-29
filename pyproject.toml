@@ -17,6 +17,9 @@ classifiers = [
 ]
 license = "GPL-3.0-or-later"
 license-files = ["LICEN[CS]E*"]
+dependencies = [
+  "pyparsing >= 3.3.2"
+]
 
 [project.urls]
 Homepage = "https://github.com/pypa/sampleproject"
