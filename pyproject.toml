@@ -18,7 +18,8 @@ classifiers = [
 license = "GPL-3.0-or-later"
 license-files = ["LICEN[CS]E*"]
 dependencies = [
-  "pyparsing >= 3.3.2"
+  "pyparsing >= 3.3.2",
+  "more-itertools >= 10.8.0"
 ]
 
 [project.urls]

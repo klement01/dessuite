@@ -5,6 +5,7 @@ from enum import Enum, StrEnum, auto
 from typing import Final, cast
 import pyparsing as pp
 
+
 r"""
 The grammar of the Tina Toolbox textual format file (.net) is described in:
 <https://projects.laas.fr/tina/manuals/formats.html>.
@@ -169,29 +170,29 @@ class ArcType(Enum):
 
 @dataclasses.dataclass(frozen=True)
 class Arc:
+    place: str
     arc_type: ArcType
     weight: int
 
 
 @dataclasses.dataclass(frozen=True)
 class TransitionDescription:
-    name: str
+    transition: str
     label: str | None
-    # TODO: include interval.
     inputs: list[Arc]
     outputs: list[Arc]
 
 
 @dataclasses.dataclass(frozen=True)
 class PlaceDescription:
-    name: str
+    place: str
     label: str | None
     markings: int
 
 
 def parse_weight(weight) -> int:
     mantissa = int(weight[Vocabulary.MANTISSA])
-    suffix = weight.get(Vocabulary.SUFFIX, None)
+    suffix = weight.get(Vocabulary.SUFFIX)
     exponent = {"K": 3, "M": 6, "G": 9, "T": 12, "P": 15, "E": 18}.get(suffix, 0)
     return mantissa * pow(10, exponent)
 
@@ -204,34 +205,36 @@ def try_parse_trdesc(desc: str) -> TransitionDescription | None:
         return None
 
     name = cast(str, parsed[Vocabulary.TRANSITION])
-    label = cast(str | None, parsed.get(Vocabulary.LABEL, None))
+    label = cast(str | None, parsed.get(Vocabulary.LABEL))
 
     inputs = []
-    for t in parsed[Vocabulary.TINPUTS]:
-        if arc := t.get(Vocabulary.ARC, None):
-            if arc_inner := arc.get(Vocabulary.NORMAL_ARC, None):
+    for t in parsed.get(Vocabulary.TINPUTS) or []:
+        if arc := t.get(Vocabulary.ARC):
+            if arc_inner := arc.get(Vocabulary.NORMAL_ARC):
                 arc_type = ArcType.NORMAL_ARC
-            elif arc_inner := arc.get(Vocabulary.TEST_ARC, None):
+            elif arc_inner := arc.get(Vocabulary.TEST_ARC):
                 arc_type = ArcType.TEST_ARC
-            elif arc_inner := arc.get(Vocabulary.INHIBITOR_ARC, None):
+            elif arc_inner := arc.get(Vocabulary.INHIBITOR_ARC):
                 arc_type = ArcType.INHIBITOR_ARC
             else:
-                assert False
-            weight = arc_inner[Vocabulary.WEIGHT]
-            inputs.append(Arc(arc_type=arc_type, weight=parse_weight(weight)))
+                assert False, "Unexpected arc type"
+            weight = parse_weight(arc_inner[Vocabulary.WEIGHT])
         else:
-            inputs.append(Arc(arc_type=ArcType.NORMAL_ARC, weight=1))
+            arc_type = ArcType.NORMAL_ARC
+            weight = 1
+
+        inputs.append(Arc(place=t[Vocabulary.PLACE], arc_type=arc_type, weight=weight))
 
     outputs = []
-    for t in parsed[Vocabulary.TOUTPUTS]:
-        if arc := t.get(Vocabulary.ARC, None):
-            arc_type = ArcType.NORMAL_ARC
-            weight = arc[Vocabulary.NORMAL_ARC][Vocabulary.WEIGHT]
-            outputs.append(Arc(arc_type=arc_type, weight=parse_weight(weight)))
+    for t in parsed.get(Vocabulary.TOUTPUTS) or []:
+        if arc := t.get(Vocabulary.NORMAL_ARC):
+            weight = parse_weight(arc[Vocabulary.WEIGHT])
         else:
-            outputs.append(Arc(arc_type=ArcType.NORMAL_ARC, weight=1))
+            weight = 1
 
-    return TransitionDescription(name=name, label=label, inputs=inputs, outputs=outputs)
+        outputs.append(Arc(place=t[Vocabulary.PLACE], arc_type=ArcType.NORMAL_ARC, weight=weight))
+
+    return TransitionDescription(transition=name, label=label, inputs=inputs, outputs=outputs)
 
 
 def try_parse_pldesc(desc: str) -> PlaceDescription | None:
@@ -242,11 +245,11 @@ def try_parse_pldesc(desc: str) -> PlaceDescription | None:
         return None
 
     name = cast(str, parsed[Vocabulary.PLACE])
-    label = cast(str | None, parsed.get(Vocabulary.LABEL, None))
+    label = cast(str | None, parsed.get(Vocabulary.LABEL))
 
-    if m := parsed.get(Vocabulary.MARKING, None):
+    if m := parsed.get(Vocabulary.MARKING):
         markings = parse_weight(m)
     else:
         markings = 0
 
-    return PlaceDescription(name=name, label=label, markings=markings)
+    return PlaceDescription(place=name, label=label, markings=markings)

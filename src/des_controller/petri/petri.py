@@ -3,16 +3,17 @@ with the concept of controllable events for use in Discrete Event Systems (DES).
 
 import functools
 import pathlib
-import re
 from collections import Counter
 from collections.abc import Hashable
 from dataclasses import dataclass, field
 from itertools import chain
-from typing import cast, Final
+from typing import Final
 
+import more_itertools
 
 import des_controller.des as des
 import des_controller.petri.extractors as extractors
+import des_controller.petri.net_parser as net_parser
 
 
 @dataclass(frozen=True)
@@ -58,16 +59,16 @@ class Petri(des.Controller):
         """Update current state according to event. Return True if state changed, False otherwised."""
         if not self.event_is_enabled(event):
             return False
-        self.current_state -= self.transitions[event].output_weights
+        self.current_state += self.transitions[event].output_weights
         return True
 
     def event_is_enabled(self, event: des.Event) -> bool:
         """Return True if event is enabled, False otherwise."""
         transition = self.transitions[event]
         if (
-            self.current_state > transition.input_weights
-            and self.current_state > transition.read_weights
-            and self.current_state < transition.inhibitor_weights
+            self.current_state >= transition.input_weights
+            and self.current_state >= transition.read_weights
+            and all(self.current_state[p] < transition.inhibitor_weights[p] for p in transition.inhibitor_weights)
         ):
             return True
         return False
@@ -94,74 +95,48 @@ class Petri(des.Controller):
         """Construct an instance of a Petri Net from a Tina Toolbox textual format file (.net).
         Optionally, allows specifying a set of events as controllable."""
 
-        # TODO: implement properly, using pyparsing (https://pypi.org/project/pyparsing/) and grammar spec (https://projects.laas.fr/tina/manuals/formats.html#2)
-
         # Properties of the parsed Petri Net.
         transitions: dict[des.Event, Transition] = {}
-        initial_state: State = Counter()
-
-        # Regular patterns for transitions.
-        tr_ptrn: Final = re.compile(
-            r"^tr \{?(?P<name>.+?)\}?(?: : \{?(?P<label>.+?)\}?)? (?P<interval>[^ ]+) (?P<transitions>.+)$"
-        )
-        interval_ptrn: Final = re.compile(
-            r"^(?P<left_bracket>\[|\])(?P<lower_limit>\d+|w),(?P<upper_limit>\d+|w)(?P<right_bracket>\[|\])"
-        )
-        transition_pattern: Final = re.compile(
-            r"(?:^| )(?P<name>([^{}]+)|(?:\{.+\}))(?:(?P<modifier>\*|\?|\!|(?:\?-)|(?:\!-))(?P<weight>\d+))?(?: |$)"
-        )
-
-        # Regular pattern for places' initial markings.
-        pl_ptrn: Final = re.compile(r"^pl \{?(?P<name>.+?)\}?(?: : \{?(?P<label>.+?)\}?)? \((?P<markings>\d+)\)$")
-
-        # Funcion for unescaping names and labels.
-        unescape_ptrn: Final = re.compile(r"\\(.)")
-
-        def unescape(s: str | None) -> str | None:
-            return None if s is None else unescape_ptrn.sub(r"\1", s)
+        initial_state_partial: State = Counter()
 
         with pathlib.Path(path).open(mode="r", encoding="cp1252") as net:
             for line in net:
-                if m := tr_ptrn.match(line):
-                    # Parse name and label.
-                    transition_name = unescape(m["name"])
-                    transition_label = unescape(m["label"])
-                    event_name = event_name_extractor(cast(str, transition_name), transition_label)
-
+                if trdesc := net_parser.try_parse_trdesc(line):
                     # TODO: parse and use intervals.
-
-                    # Parse transition weights.
                     # TODO: parse and use stopwatch arcs.
-                    input_weights: Weights = Counter()
-                    output_weights: Weights = Counter()
-                    read_weights: Weights = Counter()
-                    inhibitor_weights: Weights = Counter()
+                    event_name = event_name_extractor(trdesc.transition, trdesc.label)
 
-                    # Create transition.
-                    transition = Transition(
+                    inputs = more_itertools.bucket(trdesc.inputs, key=lambda t: t.arc_type)
+                    input_weights = Counter({Place(t.place): t.weight for t in inputs[net_parser.ArcType.NORMAL_ARC]})
+                    read_weights = Counter({Place(t.place): t.weight for t in inputs[net_parser.ArcType.TEST_ARC]})
+                    inhibitor_weights = Counter(
+                        {Place(t.place): t.weight for t in trdesc.inputs if inputs[net_parser.ArcType.INHIBITOR_ARC]}
+                    )
+
+                    output_weights = Counter({Place(t.place): t.weight for t in trdesc.outputs})
+
+                    transitions[des.Event(event_name)] = Transition(
                         input_weights=input_weights,
                         output_weights=output_weights,
                         read_weights=read_weights,
                         inhibitor_weights=inhibitor_weights,
                     )
-                    transitions[des.Event(event_name)] = transition
 
-                elif m := pl_ptrn.match(line):
-                    place_name = unescape(m["name"])
-                    place_markings = int(m["markings"])
-                    initial_state[Place(place_name)] = place_markings
+                elif pldesc := net_parser.try_parse_pldesc(line):
+                    initial_state_partial[Place(pldesc.place)] = pldesc.markings
 
         events = set(transitions.keys())
         places = set(
             place
             for place in chain(
-                initial_state.keys(),
+                initial_state_partial.keys(),
                 chain.from_iterable(transition.input_weights.keys() for transition in transitions.values()),
                 chain.from_iterable(transition.output_weights.keys() for transition in transitions.values()),
                 chain.from_iterable(transition.read_weights.keys() for transition in transitions.values()),
                 chain.from_iterable(transition.inhibitor_weights.keys() for transition in transitions.values()),
             )
         )
+        initial_state = Counter({place: initial_state_partial.get(place, 0) for place in places})
 
         return Petri(
             places=places,
