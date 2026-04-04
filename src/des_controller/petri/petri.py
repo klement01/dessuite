@@ -60,6 +60,7 @@ class Petri(des.Controller):
         if not self.event_is_enabled(event):
             return False
         self.current_state += self.transitions[event].output_weights
+        self.current_state -= self.transitions[event].input_weights
         return True
 
     def event_is_enabled(self, event: des.Event) -> bool:
