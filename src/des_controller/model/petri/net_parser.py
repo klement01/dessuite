@@ -198,7 +198,8 @@ def parse_weight(weight) -> int:
 
 
 def try_parse_trdesc(desc: str) -> TransitionDescription | None:
-    """Tries to parse desc as a trdesc string. Return None if it can't be done."""
+    """Try to parse desc as a 'trdesc' string. Return None if it can't be done.
+    See grammar description for the definition of 'trdesc'."""
     try:
         parsed = trdesc.parse_string(desc, parse_all=True)
     except pp.ParseException:
@@ -238,7 +239,8 @@ def try_parse_trdesc(desc: str) -> TransitionDescription | None:
 
 
 def try_parse_pldesc(desc: str) -> PlaceDescription | None:
-    """Tries to parse desc as a pldesc string. Return None if it can't be done."""
+    """Try to parse 'desc' as a 'pldesc' string. Return None if it can't be done.
+    See grammar description for the definition of 'pldesc'."""
     try:
         parsed = pldesc.parse_string(desc, parse_all=True)
     except pp.ParseException:

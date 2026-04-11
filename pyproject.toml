@@ -5,22 +5,21 @@ build-backend = "hatchling.build"
 [project]
 name = "des-controller"
 version = "0.0.1"
-authors = [
-  { name="Lucas Klement", email="lucasklementr@gmail.com" },
-]
+authors = [{ name = "Lucas Klement", email = "lucasklementr@gmail.com" }]
 description = "Controller for Discrete Event Systems"
 readme = "README.md"
 requires-python = ">=3.14.3"
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
 ]
 license = "GPL-3.0-or-later"
 license-files = ["LICEN[CS]E*"]
 dependencies = [
-  "pyparsing >= 3.3.2",
-  "more-itertools >= 10.8.0"
+  "pyparsing == 3.3.2",
+  "more-itertools == 10.8.0",
+  "pymodbus == 3.12.1",
 ]
 
 [project.urls]
-Homepage = "https://github.com/pypa/sampleproject"
+Homepage = "https://github.com/klement01/des-controller"
