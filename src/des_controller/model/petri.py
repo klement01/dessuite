@@ -115,7 +115,6 @@ class Petri(des.Controller):
     ) -> Petri:
         """Construct an instance of a Petri Net from a Tina Toolbox textual format file (.net).
         Optionally, allows specifying a set of events as controllable."""
-
         # Properties of the parsed Petri Net.
         transitions: dict[des.Event, Transition] = {}
         initial_state_partial: State = Counter()

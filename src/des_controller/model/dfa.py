@@ -67,7 +67,6 @@ class DFA(des.Controller):
     @staticmethod
     def import_faudes_file(path: pathlib.Path | str) -> DFA:
         """Construct an instance of a DFA from a FAUDES Generator file (.gen)."""
-
         # Extract raw strings from file.
         # TODO: proper error handling.
         tree = ElementTree.parse(str(path))
