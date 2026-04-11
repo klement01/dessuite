@@ -11,9 +11,9 @@ from typing import Final
 
 import more_itertools
 
-import des_controller.des as des
-import des_controller.petri.extractors as extractors
-import des_controller.petri.net_parser as net_parser
+import des_controller.model.des as des
+import des_controller.model.petri.extractors as extractors
+import des_controller.model.petri.net_parser as net_parser
 
 
 @dataclass(frozen=True)
