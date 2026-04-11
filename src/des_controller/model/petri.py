@@ -7,13 +7,33 @@ from collections import Counter
 from collections.abc import Hashable
 from dataclasses import dataclass, field
 from itertools import chain
-from typing import Final
+from typing import Any, Callable, Final
 
 import more_itertools
 
 import des_controller.model.des as des
-import des_controller.model.petri.extractors as extractors
 import des_controller.model.petri.net_parser as net_parser
+
+
+"""Functions for extracting an event name from a transition's name and label."""
+
+
+type Extractor = Callable[[str, str | None], str]
+
+
+def __always_name(name: str, _: Any) -> str:
+    return name
+
+
+def __label_if_present_else_name(name: str, label: str | None) -> str:
+    return name
+
+
+AlwaysName: Final[Extractor] = __always_name
+LabelIfPresentElseName: Final[Extractor] = __label_if_present_else_name
+
+
+"""Helper types for Petri net."""
 
 
 @dataclass(frozen=True)
@@ -91,7 +111,7 @@ class Petri(des.Controller):
         path: pathlib.Path,
         *,
         controllable_events: set[des.Event] = set(),
-        event_name_extractor: extractors.Extractor = extractors.LabelIfPresentElseName,
+        event_name_extractor: Extractor = LabelIfPresentElseName,
     ) -> Petri:
         """Construct an instance of a Petri Net from a Tina Toolbox textual format file (.net).
         Optionally, allows specifying a set of events as controllable."""
