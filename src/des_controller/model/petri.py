@@ -12,7 +12,7 @@ from typing import Any, Callable, Final
 import more_itertools
 
 import des_controller.model.des as des
-import des_controller.model.petri.net_parser as net_parser
+import des_controller.model.detail.net_file_parser as net_file_parser
 
 
 """Functions for extracting an event name from a transition's name and label."""
@@ -121,16 +121,16 @@ class Petri(des.Controller):
 
         with pathlib.Path(path).open(mode="r", encoding="cp1252") as net:
             for line in net:
-                if trdesc := net_parser.try_parse_trdesc(line):
+                if trdesc := net_file_parser.try_parse_trdesc(line):
                     # TODO: parse and use intervals.
                     # TODO: parse and use stopwatch arcs.
                     event_name = event_name_extractor(trdesc.transition, trdesc.label)
 
                     inputs = more_itertools.bucket(trdesc.inputs, key=lambda t: t.arc_type)
-                    input_weights = Counter({Place(t.place): t.weight for t in inputs[net_parser.ArcType.NORMAL_ARC]})
-                    read_weights = Counter({Place(t.place): t.weight for t in inputs[net_parser.ArcType.TEST_ARC]})
+                    input_weights = Counter({Place(t.place): t.weight for t in inputs[net_file_parser.ArcType.NORMAL_ARC]})
+                    read_weights = Counter({Place(t.place): t.weight for t in inputs[net_file_parser.ArcType.TEST_ARC]})
                     inhibitor_weights = Counter(
-                        {Place(t.place): t.weight for t in trdesc.inputs if inputs[net_parser.ArcType.INHIBITOR_ARC]}
+                        {Place(t.place): t.weight for t in trdesc.inputs if inputs[net_file_parser.ArcType.INHIBITOR_ARC]}
                     )
 
                     output_weights = Counter({Place(t.place): t.weight for t in trdesc.outputs})
@@ -142,7 +142,7 @@ class Petri(des.Controller):
                         inhibitor_weights=inhibitor_weights,
                     )
 
-                elif pldesc := net_parser.try_parse_pldesc(line):
+                elif pldesc := net_file_parser.try_parse_pldesc(line):
                     initial_state_partial[Place(pldesc.place)] = pldesc.markings
 
         events = set(transitions.keys())

@@ -5,6 +5,7 @@ import enum
 import pathlib
 import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass
+from typing import Iterator
 
 import pymodbus.client
 
@@ -15,6 +16,18 @@ type Address = int
 
 class ModbusRole(enum.StrEnum):
     MASTER = "master"
+
+
+@dataclass
+class SlaveAddress:
+    host: str
+    port: int
+
+    @staticmethod
+    def parse_str(host_str: str, default_port: int = 1502) -> SlaveAddress:
+        host, *port_maybe = host_str.split(":", 1)
+        port = int(port_maybe[0]) if port_maybe else default_port
+        return SlaveAddress(host=host, port=port)
 
 
 @dataclass
@@ -57,10 +70,22 @@ class ModbusIOType(enum.StrEnum):
 
 @dataclass
 class ModbusEvent:
-    event: des.Event
+    des_event: des.Event
     iotype: ModbusIOType
     actions: list[ModbusAction]
     triggers: list[ModbusTrigger]
+
+    def set_actions(self) -> Iterator[ModbusAction]:
+        return (action for action in self.actions if action.action_type == ModbusActionType.SET)
+
+    def clear_actions(self) -> Iterator[ModbusAction]:
+        return (action for action in self.actions if action.action_type == ModbusActionType.CLEAR)
+
+    def positive_edge_triggers(self) -> Iterator[ModbusTrigger]:
+        return (trigger for trigger in self.triggers if trigger.trigger_type == ModbusTriggerType.POSITIVE_EDGE)
+
+    def negative_edge_triggers(self) -> Iterator[ModbusTrigger]:
+        return (trigger for trigger in self.triggers if trigger.trigger_type == ModbusTriggerType.NEGATIVE_EDGE)
 
 
 type ModbusEventConfiguration = list[ModbusEvent]
@@ -73,38 +98,52 @@ class ModbusDevice:
     sample_interval: int
     synchronous_write: bool
     role: ModbusRole
-    slave_address: str
+    slave_address: SlaveAddress
     remote_image: ModbusRemoteImage
     event_configuration: ModbusEventConfiguration
+
+    def output_modbus_events(self) -> Iterator[ModbusEvent]:
+        return (event for event in self.event_configuration if event.iotype == ModbusIOType.OUTPUT)
+
+    def input_modbus_events(self) -> Iterator[ModbusEvent]:
+        return (event for event in self.event_configuration if event.iotype == ModbusIOType.INPUT)
+
+    def controllable_events(self) -> set[des.Event]:
+        return set((event.des_event for event in self.output_modbus_events()))
 
     @staticmethod
     def import_device_file(path: pathlib.Path | str) -> ModbusDevice:
         """Construct an instance of a ModbusDevice from a Modbus Device file (.dev)."""
         # TODO: proper error handling.
         tree = ElementTree.parse(str(path))
-        name = tree.getroot().get("name").strip()  # pyright: ignore[reportOptionalMemberAccess]
-        slave_address = tree.find("SlaveAddress").text.strip()  # pyright: ignore[reportOptionalMemberAccess]
-        time_scale = int(tree.find("TimeScale").text.strip())  # pyright: ignore[reportOptionalMemberAccess]
-        sample_interval = int(tree.find("SampleInterval").text.strip())  # pyright: ignore[reportOptionalMemberAccess]
-        synchronous_write = {"true": True, "false": False}[tree.find("SynchronousWrite").text.strip()]  # pyright: ignore[reportOptionalMemberAccess]
-        role = ModbusRole(tree.find("Role").text.strip())  # pyright: ignore[reportOptionalMemberAccess]
+        name = str(tree.getroot().get("name"))  # pyright: ignore[reportOptionalMemberAccess]
+        time_scale = int(tree.find("TimeScale").get("value").strip())  # pyright: ignore[reportOptionalMemberAccess]
+        sample_interval = int(tree.find("SampleInterval").get("value").strip())  # pyright: ignore[reportOptionalMemberAccess]
+        synchronous_write = {"true": True, "false": False}[tree.find("SynchronousWrite").get("value").strip()]  # pyright: ignore[reportOptionalMemberAccess]
+        role = ModbusRole(tree.find("Role").get("value").strip())  # pyright: ignore[reportOptionalMemberAccess]
+        slave_address = SlaveAddress.parse_str(tree.find("SlaveAddress").get("value").strip())  # pyright: ignore[reportOptionalMemberAccess]
         remote_image = ModbusRemoteImage(
             inputs=ModbusRemoteImage.ModbusRemoteImageEntry(
-                mbaddr=int(tree.find("RemoteImage/Inputs").get("@mbaddr").strip()),  # pyright: ignore[reportOptionalMemberAccess]
-                count=int(tree.find("RemoteImage/Inputs").get("@count").strip()),  # pyright: ignore[reportOptionalMemberAccess]
+                mbaddr=int(tree.find("RemoteImage/Inputs").get("mbaddr").strip()),  # pyright: ignore[reportOptionalMemberAccess]
+                count=int(tree.find("RemoteImage/Inputs").get("count").strip()),  # pyright: ignore[reportOptionalMemberAccess]
             ),
             outputs=ModbusRemoteImage.ModbusRemoteImageEntry(
-                mbaddr=int(tree.find("RemoteImage/Outputs").get("@mbaddr").strip()),  # pyright: ignore[reportOptionalMemberAccess]
-                count=int(tree.find("RemoteImage/Outputs").get("@count").strip()),  # pyright: ignore[reportOptionalMemberAccess]
+                mbaddr=int(tree.find("RemoteImage/Outputs").get("mbaddr").strip()),  # pyright: ignore[reportOptionalMemberAccess]
+                count=int(tree.find("RemoteImage/Outputs").get("count").strip()),  # pyright: ignore[reportOptionalMemberAccess]
             ),
         )
 
         def parse_modbus_event(element: ElementTree.Element[str]) -> ModbusEvent:
             event = des.Event(element.get("name").strip())  # pyright: ignore[reportOptionalMemberAccess]
             iotype = ModbusIOType(element.get("iotype").strip())  # pyright: ignore[reportOptionalMemberAccess]
-            actions = [parse_modbus_action(element) for element in element.findall("Actions/*")]
-            triggers = [parse_modbus_trigger(element) for element in element.findall("Triggers/*")]
-            return ModbusEvent(event=event, iotype=iotype, actions=actions, triggers=triggers)
+            match iotype:
+                case ModbusIOType.OUTPUT:
+                    actions = [parse_modbus_action(element) for element in element.findall("Actions/*")]
+                    triggers = []
+                case ModbusIOType.INPUT:
+                    actions = []
+                    triggers = [parse_modbus_trigger(element) for element in element.findall("Triggers/*")]
+            return ModbusEvent(des_event=event, iotype=iotype, actions=actions, triggers=triggers)
 
         def parse_modbus_action(element: ElementTree.Element[str]) -> ModbusAction:
             action_type = ModbusActionType(element.tag)
@@ -116,7 +155,7 @@ class ModbusDevice:
             address = int(element.get("address").strip())  # pyright: ignore[reportOptionalMemberAccess]
             return ModbusTrigger(address=address, trigger_type=trigger_type)
 
-        event_configuration = [parse_modbus_event(element) for element in tree.findall("EventConfiguration")]
+        event_configuration = [parse_modbus_event(element) for element in tree.findall("EventConfiguration/Event")]
 
         return ModbusDevice(
             name=name,
@@ -141,39 +180,29 @@ class DesModbusTcpClient(pymodbus.client.ModbusTcpClient):
     triggers_positive_edge: dict[Address, list[des.Event]]
     triggers_negative_edge: dict[Address, list[des.Event]]
 
-    def __init__(self, modbus_device: ModbusDevice, *args, **kwargs):
-        if modbus_device.role != ModbusRole.MASTER:
-            raise ValueError("Modbus client must be master")
-
-        super().__init__(host=modbus_device.slave_address, *args, **kwargs)
+    def __init__(self, modbus_device: ModbusDevice, *args, slave_address: SlaveAddress | None = None, **kwargs):
+        if slave_address is None:
+            slave_address = modbus_device.slave_address
+        super().__init__(host=slave_address.host, *args, port=slave_address.port, **kwargs)
 
         # Convert outputs to format more appropriate for real time use.
-        actions_set = collections.defaultdict(list)
-        actions_clear = collections.defaultdict(list)
-        for event in modbus_device.event_configuration:
-            if event.iotype != ModbusIOType.OUTPUT:
-                continue
-            for action in event.actions:
-                match action.action_type:
-                    case ModbusActionType.SET:
-                        actions_set[event.event].append(action.address)
-                    case ModbusActionType.CLEAR:
-                        actions_clear[event.event].append(action.address)
-        self.actions_set = dict(actions_set)
-        self.actions_clear = dict(actions_clear)
+        self.actions_set = {
+            modbus_event.des_event: [action.address for action in modbus_event.set_actions()]
+            for modbus_event in modbus_device.output_modbus_events()
+        }
+        self.actions_clear = {
+            modbus_event.des_event: [action.address for action in modbus_event.clear_actions()]
+            for modbus_event in modbus_device.output_modbus_events()
+        }
 
         # Convert inputs to format more appropriate for real time use.
         triggers_positive_edge = collections.defaultdict(list)
         triggers_negative_edge = collections.defaultdict(list)
-        for event in modbus_device.event_configuration:
-            if event.iotype != ModbusIOType.INPUT:
-                continue
-            for trigger in event.triggers:
-                match trigger.trigger_type:
-                    case ModbusTriggerType.POSITIVE_EDGE:
-                        triggers_positive_edge[event.event].append(trigger.address)
-                    case ModbusTriggerType.NEGATIVE_EDGE:
-                        triggers_negative_edge[event.event].append(trigger.address)
+        for modbus_event in modbus_device.input_modbus_events():
+            for trigger in modbus_event.positive_edge_triggers():
+                triggers_positive_edge[modbus_event.des_event].append(trigger.address)
+            for trigger in modbus_event.negative_edge_triggers():
+                triggers_negative_edge[modbus_event.des_event].append(trigger.address)
         self.triggers_positive_edge = dict(triggers_positive_edge)
         self.triggers_negative_edge = dict(triggers_negative_edge)
 
@@ -191,9 +220,9 @@ class DesModbusTcpClient(pymodbus.client.ModbusTcpClient):
     def send_event(self, event: des.Event):
         """Write to coils based on event."""
         for address in self.actions_clear.get(event, []):
-            self.state[address] = False
+            self.state[address - self.write_address] = False
         for address in self.actions_set.get(event, []):
-            self.state[address] = False
+            self.state[address - self.write_address] = False
         self.write_coils(self.write_address, self.state)
 
     def receive_events(self) -> set[des.Event]:
@@ -204,12 +233,11 @@ class DesModbusTcpClient(pymodbus.client.ModbusTcpClient):
 
         new_state = rr.bits
         events: set[des.Event] = set()
-        for address, (old, new) in enumerate(zip(self.state, new_state)):
+        for address_offset, (old, new) in enumerate(zip(self.state, new_state)):
+            address: Address = self.read_address + address_offset
             if not old and new:
-                # Positive edge.
                 events.update(self.triggers_positive_edge.get(address, ()))
             elif old and not new:
-                # Negative edge.
                 events.update(self.triggers_negative_edge.get(address, ()))
 
         self.state = new_state
