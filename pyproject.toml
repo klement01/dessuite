@@ -23,3 +23,6 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/klement01/des-controller"
+
+[project.scripts]
+des-controller = "des_controller.__main__:__main__"

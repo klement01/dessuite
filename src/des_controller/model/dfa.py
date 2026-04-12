@@ -2,7 +2,6 @@
 for use in Discrete Event Systems (DES)."""
 
 import collections
-import functools
 import itertools
 import pathlib
 import xml.etree.ElementTree as ElementTree

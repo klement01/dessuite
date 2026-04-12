@@ -1,7 +1,6 @@
 """Implementation of a Petri Net extended with the concept of inhibitor and read arcs and
 with the concept of controllable events for use in Discrete Event Systems (DES)."""
 
-import functools
 import pathlib
 from collections import Counter
 from collections.abc import Hashable
