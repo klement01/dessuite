@@ -22,6 +22,11 @@ class Controller(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def disabled_controllable_events(self) -> set[Event]:
+    def get_controllable_events(self) -> set[Event]:
+        """Return set of controllable events."""
+        ...
+
+    @abc.abstractmethod
+    def get_disabled_controllable_events(self) -> set[Event]:
         """Return set of controllable events disabled in the current state."""
         ...

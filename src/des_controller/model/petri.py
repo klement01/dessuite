@@ -75,15 +75,27 @@ class Petri(des.Controller):
         # TODO: validate transitions, initial_state and controllable_events.
         self.current_state = self.initial_state
 
+    # Virtual method implementations.
+
     def update(self, event: des.Event) -> bool:
         """Update current state according to event. Return True if state changed, False otherwised."""
-        if not self.event_is_enabled(event):
+        if not self.get_event_is_enabled(event):
             return False
         self.current_state += self.transitions[event].output_weights
         self.current_state -= self.transitions[event].input_weights
         return True
 
-    def event_is_enabled(self, event: des.Event) -> bool:
+    def get_controllable_events(self) -> set[des.Event]:
+        """Return set of controllable events."""
+        return self.controllable_events
+
+    def get_disabled_controllable_events(self) -> set[des.Event]:
+        """Return set of controllable events disabled in the current state."""
+        return set(event for event in self.get_controllable_events() if not self.get_event_is_enabled(event))
+
+    # Helper methods.
+
+    def get_event_is_enabled(self, event: des.Event) -> bool:
         """Return True if event is enabled, False otherwise."""
         transition = self.transitions[event]
         if (
@@ -94,23 +106,11 @@ class Petri(des.Controller):
             return True
         return False
 
-    def enabled_events(self) -> set[des.Event]:
-        """Return set of events which may cause a transition in the current state."""
-        return set(event for event in self.events if self.event_is_enabled(event))
-
-    def enabled_controllable_events(self) -> set[des.Event]:
-        """Return set of controllable events enabled in the current state."""
-        return self.controllable_events.intersection(self.enabled_events())
-
-    def disabled_controllable_events(self) -> set[des.Event]:
-        """Return set of controllable events disabled in the current state."""
-        return self.controllable_events - self.enabled_controllable_events()
-
     @staticmethod
     def import_tina_file(
         path: pathlib.Path,
         *,
-        controllable_events: set[des.Event] = set(),
+        max_controllable_events: set[des.Event] | None = None,
         event_name_extractor: Extractor = LabelIfPresentElseName,
     ) -> Petri:
         """Construct an instance of a Petri Net from a Tina Toolbox textual format file (.net).
@@ -170,5 +170,5 @@ class Petri(des.Controller):
             events=events,
             transitions=transitions,
             initial_state=initial_state,
-            controllable_events=controllable_events,
+            controllable_events=events.intersection(max_controllable_events or set()),
         )

@@ -41,28 +41,24 @@ class DFA(des.Controller):
         # TODO: validate transitions, initial_state, marked_states and controllable_events.
         self.current_state = self.initial_state
 
+    # Virtual method implementations.
+
     def update(self, event: des.Event) -> bool:
         """Update current state according to event. Return True if state changed, False otherwised."""
-        if not self.event_is_enabled(event):
+        if event not in self.transitions[self.current_state]:
             return False
         self.current_state = self.transitions[self.current_state][event]
         return True
 
-    def event_is_enabled(self, event: des.Event) -> bool:
-        """Return True if event is enabled, False otherwise."""
-        return event in self.enabled_events()
+    def get_controllable_events(self) -> set[des.Event]:
+        """Return set of controllable events."""
+        return self.controllable_events
 
-    def enabled_events(self) -> set[des.Event]:
-        """Return set of events which may cause a transition in the current state."""
-        return set(self.transitions[self.current_state])
-
-    def enabled_controllable_events(self) -> set[des.Event]:
-        """Return set of controllable events enabled in the current state."""
-        return self.controllable_events.intersection(self.enabled_events())
-
-    def disabled_controllable_events(self) -> set[des.Event]:
+    def get_disabled_controllable_events(self) -> set[des.Event]:
         """Return set of controllable events disabled in the current state."""
-        return self.controllable_events - self.enabled_controllable_events()
+        return self.get_controllable_events() - set(self.transitions[self.current_state])
+
+    # Helper methods.
 
     @staticmethod
     def import_faudes_file(path: pathlib.Path) -> DFA:

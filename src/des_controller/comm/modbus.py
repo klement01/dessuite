@@ -243,7 +243,7 @@ class DesModbusTcpClient:
         new_state = self.read_state()
         events: set[des.Event] = set()
         for address_offset, (old, new) in enumerate(zip(self.state, new_state)):
-            address: Address = self.remote_image.inputs.mbaddr + address_offset + 1
+            address: Address = self.remote_image.inputs.mbaddr + address_offset
             if not old and new:
                 events.update(self.triggers_positive_edge.get(address, ()))
             elif old and not new:
