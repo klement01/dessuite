@@ -233,7 +233,7 @@ class DesModbusTcpClient:
         for address in self.actions_clear.get(event, []):
             self.state[address - base_address] = False
         for address in self.actions_set.get(event, []):
-            self.state[address - base_address] = False
+            self.state[address - base_address] = True
         self.client.write_coils(self.remote_image.outputs.mbaddr, self.state)
 
     def receive_events(self) -> set[des.Event]:
