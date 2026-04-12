@@ -94,13 +94,11 @@ class Petri(des.Controller):
     def get_event_is_enabled(self, event: des.Event) -> bool:
         """Return True if event is enabled, False otherwise."""
         transition = self.transitions[event]
-        if (
+        return (
             self.current_state >= transition.input_weights
             and self.current_state >= transition.read_weights
-            and all(self.current_state[p] < transition.inhibitor_weights[p] for p in transition.inhibitor_weights)
-        ):
-            return True
-        return False
+            and all(self.current_state[p] < w for p, w in transition.inhibitor_weights.items())
+        )
 
     @staticmethod
     def import_tina_file(
@@ -128,11 +126,7 @@ class Petri(des.Controller):
                     )
                     read_weights = Counter({Place(t.place): t.weight for t in inputs[net_file_parser.ArcType.TEST_ARC]})
                     inhibitor_weights = Counter(
-                        {
-                            Place(t.place): t.weight
-                            for t in trdesc.inputs
-                            if inputs[net_file_parser.ArcType.INHIBITOR_ARC]
-                        }
+                        {Place(t.place): t.weight for t in inputs[net_file_parser.ArcType.INHIBITOR_ARC]}
                     )
 
                     output_weights = Counter({Place(t.place): t.weight for t in trdesc.outputs})
