@@ -67,13 +67,9 @@ class Petri(des.Controller):
     # Controller extension.
     controllable_events: Final[set[des.Event]] = field(kw_only=True)
 
-    @functools.cached_property
-    def uncontrollable_events(self) -> set[des.Event]:
-        return self.events - self.controllable_events
-
     def __post_init__(self):
         # TODO: validate transitions, initial_state and controllable_events.
-        self.current_state = self.initial_state
+        self.current_state = self.initial_state.copy()
 
     # Virtual method implementations.
 
