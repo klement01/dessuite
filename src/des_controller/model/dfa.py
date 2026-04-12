@@ -65,7 +65,7 @@ class DFA(des.Controller):
         return self.controllable_events - self.enabled_controllable_events()
 
     @staticmethod
-    def import_faudes_file(path: pathlib.Path | str) -> DFA:
+    def import_faudes_file(path: pathlib.Path) -> DFA:
         """Construct an instance of a DFA from a FAUDES Generator file (.gen)."""
         # Extract raw strings from file.
         # TODO: proper error handling.
@@ -91,6 +91,7 @@ class DFA(des.Controller):
 
         # Assemble DFA.
         return DFA(
+            name=path.name,
             states=states,
             events=events,
             transitions=transitions,

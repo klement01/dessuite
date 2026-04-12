@@ -34,7 +34,7 @@ class SlaveAddress:
 class ModbusRemoteImage:
     @dataclass
     class ModbusRemoteImageEntry:
-        mbaddr: int
+        mbaddr: Address
         count: int
 
     inputs: ModbusRemoteImageEntry
@@ -169,11 +169,13 @@ class ModbusDevice:
         )
 
 
-class DesModbusTcpClient(pymodbus.client.ModbusTcpClient):
-    state: list[bool]
+class DesModbusTcpClient:
+    client: pymodbus.client.ModbusTcpClient
 
-    read_address: Address
-    write_address: Address
+    type State = list[bool]
+    state: State | None = None
+
+    remote_image: ModbusRemoteImage
 
     actions_set: dict[des.Event, list[Address]]
     actions_clear: dict[des.Event, list[Address]]
@@ -181,9 +183,12 @@ class DesModbusTcpClient(pymodbus.client.ModbusTcpClient):
     triggers_negative_edge: dict[Address, list[des.Event]]
 
     def __init__(self, modbus_device: ModbusDevice, *args, slave_address: SlaveAddress | None = None, **kwargs):
+        # Create the underlying client.
         if slave_address is None:
             slave_address = modbus_device.slave_address
-        super().__init__(host=slave_address.host, *args, port=slave_address.port, **kwargs)
+        self.client = pymodbus.client.ModbusTcpClient(host=slave_address.host, *args, port=slave_address.port, **kwargs)
+
+        self.remote_image = modbus_device.remote_image
 
         # Convert outputs to format more appropriate for real time use.
         self.actions_set = {
@@ -196,49 +201,52 @@ class DesModbusTcpClient(pymodbus.client.ModbusTcpClient):
         }
 
         # Convert inputs to format more appropriate for real time use.
-        triggers_positive_edge = collections.defaultdict(list)
-        triggers_negative_edge = collections.defaultdict(list)
+        triggers_positive_edge: dict[Address, list[des.Event]] = collections.defaultdict(list)
+        triggers_negative_edge: dict[Address, list[des.Event]] = collections.defaultdict(list)
         for modbus_event in modbus_device.input_modbus_events():
             for trigger in modbus_event.positive_edge_triggers():
-                triggers_positive_edge[modbus_event.des_event].append(trigger.address)
+                triggers_positive_edge[trigger.address].append(modbus_event.des_event)
             for trigger in modbus_event.negative_edge_triggers():
-                triggers_negative_edge[modbus_event.des_event].append(trigger.address)
+                triggers_negative_edge[trigger.address].append(modbus_event.des_event)
         self.triggers_positive_edge = dict(triggers_positive_edge)
         self.triggers_negative_edge = dict(triggers_negative_edge)
 
-        # Save read/write addresses.
-        self.read_address = modbus_device.remote_image.inputs.mbaddr
-        self.write_address = modbus_device.remote_image.outputs.mbaddr
+    def connect(self):
+        if not self.client.connect():
+            raise pymodbus.ModbusException("failed to connect")
+        self.state = self.read_state()
 
-        # Get initial state of coils.
-        rr = self.read_coils(self.read_address, count=modbus_device.remote_image.inputs.count)
+    def disconnect(self):
+        self.client.close()
+
+    def read_state(self) -> State:
+        rr = self.client.read_coils(self.remote_image.inputs.mbaddr, count=self.remote_image.inputs.count)
         if rr.isError():
             raise pymodbus.ModbusException("invalid response")
-
-        self.state = rr.bits
+        return rr.bits[: self.remote_image.inputs.count]
 
     def send_event(self, event: des.Event):
         """Write to coils based on event."""
+        assert self.state is not None, "Modbus client not started"
+
+        base_address = self.remote_image.outputs.mbaddr
         for address in self.actions_clear.get(event, []):
-            self.state[address - self.write_address] = False
+            self.state[address - base_address] = False
         for address in self.actions_set.get(event, []):
-            self.state[address - self.write_address] = False
-        self.write_coils(self.write_address, self.state)
+            self.state[address - base_address] = False
+        self.client.write_coils(self.remote_image.outputs.mbaddr, self.state)
 
     def receive_events(self) -> set[des.Event]:
         """Read coils and translate to events."""
-        rr = self.read_coils(self.read_address, count=len(self.state))
-        if rr.isError():
-            raise pymodbus.ModbusException("invalid response")
+        assert self.state is not None, "Modbus client not started"
 
-        new_state = rr.bits
+        new_state = self.read_state()
         events: set[des.Event] = set()
         for address_offset, (old, new) in enumerate(zip(self.state, new_state)):
-            address: Address = self.read_address + address_offset
+            address: Address = self.remote_image.inputs.mbaddr + address_offset + 1
             if not old and new:
                 events.update(self.triggers_positive_edge.get(address, ()))
             elif old and not new:
                 events.update(self.triggers_negative_edge.get(address, ()))
-
         self.state = new_state
         return events

@@ -10,8 +10,11 @@ class Event:
     id: Hashable
 
 
+@dataclass
 class Controller(abc.ABC):
     """Abstract Base Class (ABC) for a Discrete Event Systems (DES) controller."""
+
+    name: str
 
     @abc.abstractmethod
     def update(self, event: Event) -> bool:

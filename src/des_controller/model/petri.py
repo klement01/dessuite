@@ -127,10 +127,16 @@ class Petri(des.Controller):
                     event_name = event_name_extractor(trdesc.transition, trdesc.label)
 
                     inputs = more_itertools.bucket(trdesc.inputs, key=lambda t: t.arc_type)
-                    input_weights = Counter({Place(t.place): t.weight for t in inputs[net_file_parser.ArcType.NORMAL_ARC]})
+                    input_weights = Counter(
+                        {Place(t.place): t.weight for t in inputs[net_file_parser.ArcType.NORMAL_ARC]}
+                    )
                     read_weights = Counter({Place(t.place): t.weight for t in inputs[net_file_parser.ArcType.TEST_ARC]})
                     inhibitor_weights = Counter(
-                        {Place(t.place): t.weight for t in trdesc.inputs if inputs[net_file_parser.ArcType.INHIBITOR_ARC]}
+                        {
+                            Place(t.place): t.weight
+                            for t in trdesc.inputs
+                            if inputs[net_file_parser.ArcType.INHIBITOR_ARC]
+                        }
                     )
 
                     output_weights = Counter({Place(t.place): t.weight for t in trdesc.outputs})
@@ -159,6 +165,7 @@ class Petri(des.Controller):
         initial_state = Counter({place: initial_state_partial.get(place, 0) for place in places})
 
         return Petri(
+            name=path.name,
             places=places,
             events=events,
             transitions=transitions,
