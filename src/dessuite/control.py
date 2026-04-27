@@ -5,10 +5,10 @@ import pprint
 from datetime import datetime
 from typing import Iterable
 
-import des_controller.comm.modbus as modbus
-import des_controller.model.des as des
-import des_controller.model.dfa as dfa
-import des_controller.model.petri as petri
+import dessuite.comm.modbus as modbus
+import dessuite.model.des as des
+import dessuite.model.dfa as dfa
+import dessuite.model.petri as petri
 
 
 def control_loop(modbus_device_file: pathlib.Path, model_files: Iterable[pathlib.Path]):

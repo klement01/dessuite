@@ -10,8 +10,8 @@ from typing import Any, Callable, Final
 
 import more_itertools
 
-import des_controller.model.des as des
-import des_controller.model.detail.net_file_parser as net_file_parser
+import dessuite.model.des as des
+import dessuite.model.detail.net_file_parser as net_file_parser
 
 
 """Functions for extracting an event name from a transition's name and label."""

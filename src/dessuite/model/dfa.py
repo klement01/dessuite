@@ -9,7 +9,7 @@ from collections.abc import Hashable
 from dataclasses import dataclass, field
 from typing import Final
 
-import des_controller.model.des as des
+import dessuite.model.des as des
 
 
 @dataclass(frozen=True)

@@ -9,7 +9,7 @@ from typing import Iterator
 
 import pymodbus.client
 
-import des_controller.model.des as des
+import dessuite.model.des as des
 
 type Address = int
 

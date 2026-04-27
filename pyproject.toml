@@ -3,10 +3,10 @@ requires = ["hatchling >= 1.29"]
 build-backend = "hatchling.build"
 
 [project]
-name = "des-controller"
+name = "dessuite"
 version = "0.0.1"
 authors = [{ name = "Lucas Klement", email = "lucasklementr@gmail.com" }]
-description = "Controller for Discrete Event Systems"
+description = "Suite of tools for Discrete Event Systems (DES)"
 readme = "README.md"
 requires-python = ">=3.14.3"
 classifiers = [
@@ -25,4 +25,4 @@ dependencies = [
 Homepage = "https://github.com/klement01/des-controller"
 
 [project.scripts]
-des-controller = "des_controller.__main__:__main__"
+dessuite = "dessuite.__main__:__main__"
