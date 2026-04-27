@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dessuite"
-version = "0.0.1"
+version = "0.0.2"
 authors = [{ name = "Lucas Klement", email = "lucasklementr@gmail.com" }]
 description = "Suite of tools for Discrete Event Systems (DES)"
 readme = "README.md"
@@ -19,6 +19,7 @@ dependencies = [
   "pyparsing == 3.3.2",
   "more-itertools == 10.8.0",
   "pymodbus == 3.12.1",
+  "cogapp == 3.6.0",
 ]
 
 [project.urls]
