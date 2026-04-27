@@ -33,6 +33,7 @@ def __main__() -> int:
     parser_generator.add_argument("spec_file", type=pathlib.Path, help="dessuite specification file (.des.xml)")
     parser_generator.add_argument("out_c", type=pathlib.Path, help="generated C source file (.c) output")
     parser_generator.add_argument("out_h", type=pathlib.Path, help="generated C header file (.h) output")
+    parser_controller.set_defaults(func=parser_generator_handler)
 
     # Gateway tool.
     # TODO.
