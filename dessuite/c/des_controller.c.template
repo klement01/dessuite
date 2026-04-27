@@ -1,0 +1,214 @@
+#include "des_controller.h"
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#include "FreeRTOS.h"
+#include "FreeRTOSConfig.h"
+#include "portmacro.h"
+#include "projdefs.h"
+#include "task.h"
+#include "queue.h"
+
+/** Module includes. **/
+
+{MODULE_INCLUDES}
+
+
+/** Core data (defines, types and constants). **/
+
+/* User parameters. */
+#define CORE_EVENT_QUEUE_SIZE ({CORE_EVENT_QUEUE_SIZE})
+
+#define CORE_EXECUTE_COMMAND_NAME ({CORE_EXECUTE_COMMAND_NAME})
+#define CORE_UPDATE_STATE_NAME ({CORE_UPDATE_STATE_NAME})
+#define CORE_SET_COMMAND_NAME ({CORE_SET_COMMAND_NAME})
+
+#define CORE_EXECUTE_COMMAND_NAME ({CORE_EXECUTE_COMMAND_SDEPTH})
+#define CORE_UPDATE_STATE_NAME ({CORE_UPDATE_STATE_SDEPTH})
+#define CORE_SET_COMMAND_NAME ({CORE_SET_COMMAND_SDEPTH})
+
+#define CORE_EXECUTE_COMMAND_PRIORITY ({CORE_EXECUTE_COMMAND_PRIORITY})
+#define CORE_UPDATE_STATE_PRIORITY ({CORE_UPDATE_STATE_PRIORITY})
+#define CORE_SET_COMMAND_PRIORITY ({CORE_SET_COMMAND_PRIORITY})
+
+/* Petri Net definition. */
+#define CORE_EVENT_COUNT ({CORE_EVENT_COUNT})
+#define CORE_COMMAND_COUNT ({CORE_COMMAND_COUNT})
+#define CORE_PLACE_COUNT ({CORE_PLACE_COUNT})
+
+typedef uint8_t EventIdx_t;
+typedef uint8_t PlaceIdx_t;
+typedef uint8_t CommandIdx_t;
+typedef uint8_t PlaceMarking_t;
+typedef int8_t ArcWeight_t;
+
+enum EventIdx : EventIdx_t
+{
+  {CORE_EVENTS_IDS},
+};
+
+struct Place
+{
+  PlaceMarking_t markings;
+};
+
+struct TransitionArc
+{
+  const PlaceIdx_t placeIdx;
+  const ArcWeight_t weight;
+};
+
+struct EventTransition
+{
+  const int8_t inputArcsCount;
+  const int8_t deltaArcsCount;
+  const struct TransitionArc *inputArcs;
+  const struct TransitionArc *deltaArcs;
+};
+
+{CORE_EVENT_DATA}
+
+const struct EventTransition CORE_EVENT_TRANSITIONS[EVENT_COUNT] =
+{
+  {CORE_EVENT_TRANSITION_VECTOR},
+};
+
+
+/** Core variables. **/
+
+/* Current state. */
+struct Place corePlaces[CORE_PLACE_COUNT] = { {CORE_INITIAL_MARKINGS} };
+
+/* Inter-task communication. */
+QueueHandle_t PendingEventsQueue;
+TaskHandle_t ExecuteCommandTaskHandle;
+TaskHandle_t SetCommandTaskHandle;
+TaskHandle_t UpdateStateTaskHandle;
+TaskHandle_t TraceTaskHandle;
+
+
+/** Module data (defines, types and constants). **/
+
+{MODULE_DATA}
+
+
+/** Module variables. **/
+
+{MODULE_VARIABLES}
+
+
+/** Module initialization function definitions. **/
+
+{MODULE_INIT_FUNCTION_DEFINITIONS}
+
+
+/** Module input interface functions. **/
+
+{MODULE_INPUT_INTERFACE_FUNCTIONS}
+
+
+/** Module output interface functions. **/
+
+{MODULE_MODULE_INTERFACE_FUNCTIONS}
+
+
+/** Core command handler. */
+
+struct Command
+{
+  const enum EventIdx eventIdx;
+  const void (*handler)(void);
+};
+
+{CORE_COMMAND_HANDLER_FUNCTIONS}
+
+const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
+{
+  {CORE_COMMAND_HANDLER_VECTOR}
+};
+
+
+/** Core tasks. **/
+
+bool EventTransitionIsEnabled(EventIdx_t eventIdx)
+{
+  for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].inputArcsCount; ++idx)
+  {
+    const PlaceIdx_t arcPlace = CORE_EVENT_TRANSITIONS[eventIdx].inputArcs[idx].placeIdx;
+    const ArcWeight_t arcWeight = CORE_EVENT_TRANSITIONS[eventIdx].inputArcs[idx].weight;
+    if (arcWeight > corePlaces[arcPlace].markings)
+      return false;
+  }
+  return true;
+}
+
+void ExecuteCommand(void*)
+{
+  for (;;)
+  {
+    const CommandIdx_t commandIdx = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    const EventIdx_t eventIdx = CORE_COMMANDS[commandIdx].eventIdx;
+    if (xQueueSendToBack(PendingEventsQueue, &eventIdx, 0) != pdPASS)
+    CORE_COMMANDS[commandIdx].handler();
+  }
+}
+
+void UpdateState(void*)
+{
+  for (;;)
+  {
+    EventIdx_t event;
+    if (xQueueReceive(PendingEventsQueue, &event, portMAX_DELAY) != pdPASS)
+      continue;
+    if (!EventTransitionIsEnabled(event))
+      continue;
+    for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[event].deltaArcsCount; ++idx)
+    {
+      const PlaceIdx_t placeIdx = CORE_EVENT_TRANSITIONS[event].deltaArcs[idx].placeIdx;
+      const ArcWeight_t weight = CORE_EVENT_TRANSITIONS[event].deltaArcs[idx].weight;
+      corePlaces[placeIdx].markings += weight;
+    }
+    xTaskNotifyGive(SetCommandTaskHandle);
+  }
+}
+
+void SetCommand(void*)
+{
+  for (;;)
+  {
+    bool commandFound = false;
+    CommandIdx_t commandIdx;
+    do
+    {
+      commandFound = false;
+      for (commandIdx = 0; commandIdx < COMMAND_COUNT; ++commandIdx)
+      {
+        if (EventTransitionIsEnabled(CORE_COMMANDS[commandIdx].eventIdx))
+        {
+          commandFound = true;
+          break;
+        }
+      }
+    } while (ulTaskNotifyTake(pdTRUE, 0) != 0);
+    if (commandFound)
+      xTaskNotify(ExecuteCommandTaskHandle, commandIdx, eSetValueWithOverwrite);
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+  }
+}
+
+
+/** Initialization function. Called by user code. **/
+
+void DesControllerSetup(void)
+{
+  /* Core initialization. */
+  PendingEventsQueue = xQueueCreate(CORE_EVENT_QUEUE_SIZE, sizeof(EventIdx_t));
+  xTaskCreate(ExecuteCommand, CORE_EXECUTE_COMMAND_NAME, CORE_EXECUTE_COMMAND_SDEPTH, NULL, CORE_EXECUTE_COMMAND_PRIORITY, &ExecuteCommandTaskHandle);
+  xTaskCreate(UpdateState, CORE_UPDATE_STATE_NAME, CORE_UPDATE_STATE_SDEPTH, NULL, CORE_UPDATE_STATE_PRIORITY, &UpdateStateTaskHandle);
+  xTaskCreate(SetCommand, CORE_SET_COMMAND_NAME, CORE_SET_COMMAND_SDEPTH, NULL, CORE_SET_COMMAND_PRIORITY, &SetCommandTaskHandle);
+
+  /* Module initialization. */
+  {MODULE_INIT_FUNCTION_CALLS}
+}
