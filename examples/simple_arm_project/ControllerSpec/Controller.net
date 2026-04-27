@@ -1,0 +1,10 @@
+tr t3 : ENABLE_GREEN_DISABLE_RED [0,w[ p3 -> p0
+tr t2 : GREEN_BUTTON_PRESSED [0,w[ p2 -> p3
+tr t0 : RED_BUTTON_PRESSED [0,w[ p0 -> p1
+tr t1 : DISABLE_GREEN_ENABLE_RED [0,w[ p1 -> p2
+pl p0 : green_on_red_off_STABLE
+pl p3 : green_off_red_on_TRANS (1)
+pl p2 : green_off_red_on_STABLE
+pl p1 : green_on_red_off_TRANS
+net Controller
+

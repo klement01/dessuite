@@ -1,0 +1,89 @@
+<Dessuite>
+	<Core>
+		<!-- Core settings -->
+		<AutoEnumerate/>
+		<EventQueueSize>32</EventQueueSize>
+		<Tasks>
+			<ExecuteCommand>
+				<Name>ExecuteCommand</Name>
+				<StackDepth>configMINIMAL_STACK_SIZE</StackDepth>
+				<Priority>12</Priority>
+			</ExecuteCommand>
+			<UpdateState>
+				<Name>UpdateState</Name>
+				<StackDepth>configMINIMAL_STACK_SIZE</StackDepth>
+				<Priority>11</Priority>
+			</UpdateState>
+			<SetCommand>
+				<Name>SetCommand</Name>
+				<StackDepth>configMINIMAL_STACK_SIZE</StackDepth>
+				<Priority>10</Priority>
+			</SetCommand>
+		</Tasks>
+	</Core>
+	<Modules>
+		<!-- Module settings -->
+		<HalGpio/>
+		<HalUart>
+			<AutoEnumerate/>
+		</HalUart>
+	</Modules>
+	<Events>
+		<!-- External event -->
+		<Event>
+			<Name>RED_BUTTON_PRESSED</Name>
+			<Triggers>
+				<HalGpio>
+					<ExtI>
+						<Pin>BUTTON_RED</Pin>
+					</ExtI>
+				</HalGpio>
+				<HalUart>
+					<Receive/>
+				</HalUart>
+			</Triggers>
+		</Event>
+		<!-- Command -->
+		<Event>
+			<Name>DISABLE_GREEN_ENABLE_RED</Name>
+			<Controllable/>
+			<Actions>
+				<HalGpio>
+					<Set>GREEN_LED</Set>
+					<Reset>RED_LED</Reset>
+				</HalGpio>
+				<HalUart>
+					<Transmit/>
+				</HalUart>
+			</Actions>
+		</Event>
+		<!-- External event -->
+		<Event>
+			<Name>GREEN_BUTTON_PRESSED</Name>
+			<Triggers>
+				<HalGpio>
+					<ExtI>
+						<Pin>BUTTON_GREEN</Pin>
+					</ExtI>
+				</HalGpio>
+				<HalUart>
+					<Receive/>
+				</HalUart>
+			</Triggers>
+		</Event>
+		<!-- Command -->
+		<Event>
+			<Name>DISABLE_GREEN_ENABLE_RED</Name>
+			<Controllable/>
+			<Actions>
+				<HalGpio>
+					<Reset>GREEN_LED</Reset>
+					<Set>RED_LED</Set>
+				</HalGpio>
+				<HalUart>
+					<Transmit/>
+				</HalUart>
+			</Actions>
+		</Event>
+	</Events>
+</Dessuite>
