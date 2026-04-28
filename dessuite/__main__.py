@@ -36,7 +36,15 @@ def __main__() -> int:
     parser_generator.set_defaults(func=parser_generator_handler)
 
     # Gateway tool.
-    # TODO.
+    parser_gateway = subparsers.add_parser(
+        name="gateway", help="act as gateway between FlexFact and a controller generated with generator"
+    )
+    parser_gateway.add_argument(
+        "modbus_device_file", type=pathlib.Path, help="Modbus Device file (.dev) exported from FlexFact"
+    )
+    parser_gateway.add_argument("spec_file", type=pathlib.Path, help="dessuite specification file (.des.xml)")
+    parser_gateway.add_argument("com", help="COM port")
+    parser_gateway.set_defaults(func=parser_gateway_handler)
 
     args = parser.parse_args()
     return args.func(args)
@@ -55,6 +63,14 @@ def parser_generator_handler(args: argparse.Namespace) -> int:
     out_c: pathlib.Path = args.out_c
     out_h: pathlib.Path = args.out_h
     generator.generate(model_file, spec_file, out_c, out_h)
+    return 0
+
+
+def parser_gateway_handler(args: argparse.Namespace) -> int:
+    modbus_device_file: pathlib.Path = args.modbus_device_file
+    spec_file: pathlib.Path = args.spec_file
+    com: str = args.com
+    # TODO: call gateway func.
     return 0
 
 
