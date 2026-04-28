@@ -2,23 +2,6 @@
 	<Core>
 		<!-- Core settings -->
 		<EventQueueSize>32</EventQueueSize>
-		<Tasks>
-			<ExecuteCommand>
-				<Name>ExecuteCommand</Name>
-				<StackDepth>configMINIMAL_STACK_SIZE</StackDepth>
-				<Priority>12</Priority>
-			</ExecuteCommand>
-			<UpdateState>
-				<Name>UpdateState</Name>
-				<StackDepth>configMINIMAL_STACK_SIZE</StackDepth>
-				<Priority>11</Priority>
-			</UpdateState>
-			<SetCommand>
-				<Name>SetCommand</Name>
-				<StackDepth>configMINIMAL_STACK_SIZE</StackDepth>
-				<Priority>10</Priority>
-			</SetCommand>
-		</Tasks>
 	</Core>
 	<Modules>
 		<!-- Module settings -->
@@ -29,7 +12,6 @@
 		<HalUart>
 			<AutoEnumerate/>
 			<Handle>huart1</Handle>
-			<MessageSize>1</MessageSize>
 		</HalUart>
 	</Modules>
 	<Events>

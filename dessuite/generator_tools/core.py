@@ -8,12 +8,16 @@ from dessuite.generator_tools.util import key_is_truthy
 class CoreTaskSettings:
     internal_name: str
     priority: str | int
-    name: str | None = None
     stack_depth: str | int = "configMINIMAL_STACK_SIZE"
+    _name: str | None = None
+
+    @property
+    def name(self):
+        return self._name or self.internal_name
 
     def update_from_element_tree(self, et: ElementTree.Element[str]):
         if (m := et.find("Name")) is not None:
-            self.name = m.text
+            self._name = m.text
         if (m := et.find("StackDepth")) is not None:
             self.stack_depth = m.text  # pyright: ignore[reportAttributeAccessIssue]
         if (m := et.find("Priority")) is not None:
