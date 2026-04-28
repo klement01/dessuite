@@ -99,9 +99,9 @@ TaskHandle_t TraceTaskHandle;
 {MODULE_VARIABLES}
 
 
-/** Module initialization function definitions. **/
+/** Module function definitions. **/
 
-{MODULE_INIT_FUNCTION_DEFINITIONS}
+{MODULE_FUNCTION_DEFINITIONS}
 
 
 /** Module input interface functions. **/

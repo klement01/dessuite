@@ -13,7 +13,7 @@
 
 /** Module includes. **/
 
-/* TODO */
+
 
 
 /** Core data (defines, types and constants). **/
@@ -124,27 +124,27 @@ TaskHandle_t TraceTaskHandle;
 
 /** Module data (defines, types and constants). **/
 
-/* TODO */
+
 
 
 /** Module variables. **/
 
-/* TODO */
 
 
-/** Module initialization function definitions. **/
 
-/* TODO */
+/** Module function definitions. **/
+
+
 
 
 /** Module input interface functions. **/
 
-/* TODO */
+
 
 
 /** Module output interface functions. **/
 
-/* TODO */
+
 
 
 /** Core command handler. */
@@ -249,5 +249,5 @@ void DesControllerSetup(void)
   xTaskCreate(SetCommand, CORE_SET_COMMAND_NAME, CORE_SET_COMMAND_SDEPTH, NULL, CORE_SET_COMMAND_PRIORITY, &SetCommandTaskHandle);
 
   /* Module initialization. */
-  /* TODO */
+  
 }

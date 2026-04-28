@@ -78,7 +78,7 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
     # Event transitions.
     event_transitions_cw = CodeWriter(indent=INDENT)
     event_transition_vector_entries = []
-    for idx, event in enumerate(spec.ordered_events):
+    for event_idx, event in enumerate(spec.ordered_events):
         transition = spec.net.transitions[event]
         input_arcs = {
             p_idx: w
@@ -92,14 +92,14 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         }
 
         input_arcs_var = Variable(
-            f"EVENT_{idx}_INPUT_ARCS",
+            f"EVENT_{event_idx}_INPUT_ARCS",
             primitive="struct TransitionArc",
             qualifiers="const",
             value=input_arcs.items(),  # type: ignore
             array=len(input_arcs),  # type: ignore
         )
         delta_arcs_var = Variable(
-            f"EVENT_{idx}_DELTA_ARCS",
+            f"EVENT_{event_idx}_DELTA_ARCS",
             primitive="struct TransitionArc",
             qualifiers="const",
             value=delta_arcs.items(),  # type: ignore
@@ -118,17 +118,35 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
     # Commands.
     command_handler_cw = CodeWriter(indent=INDENT)
     command_handler_vector_entries = []
-    for idx, command in enumerate(spec.ordered_commands):
+    for command_idx, command in enumerate(spec.ordered_commands):
         event_idx = spec.ordered_events.index(command)
-        handler = Function(f"COMMAND_{idx}_HANDLER")
-        # TODO: add module code.
-        # module.add_actions(handler): handler.add_code(...) ...
+        handler = Function(f"COMMAND_{command_idx}_HANDLER")
+        for module in spec.modules.values():
+            module.write_actions(command_idx, handler)
         command_handler_cw.add_function_definition(handler)
         command_handler_vector_entries.append("{" + ", ".join(str(i) for i in (event_idx, handler.name)) + "}")
 
+    # Other module data.
+    module_includes_cw = CodeWriter(indent=INDENT)
+    module_data_cw = CodeWriter(indent=INDENT)
+    module_variables_cw = CodeWriter(indent=INDENT)
+    module_function_definitions_cw = CodeWriter(indent=INDENT)
+    module_input_interface_functions_cw = CodeWriter(indent=INDENT)
+    module_output_interface_functions_cw = CodeWriter(indent=INDENT)
+    module_init_function_calls_cw = CodeWriter(indent=INDENT)
+    module_init_function_calls_cw.indent()
+    for module in spec.modules.values():
+        module.write_includes(module_includes_cw)
+        module.write_data(module_data_cw)
+        module.write_variables(module_variables_cw)
+        module.write_function_definitions(module_function_definitions_cw)
+        module.write_input_interface_functions(module_input_interface_functions_cw)
+        module.write_output_interface_functions(module_output_interface_functions_cw)
+        module.write_init_function_calls(module_init_function_calls_cw)
+
     # Finalize.
     template_kv_pairs = [
-        ("MODULE_INCLUDES", "/* TODO */"),  # TODO
+        ("MODULE_INCLUDES", module_includes_cw),  # TODO
         ("CORE_EVENT_QUEUE_SIZE", spec.core_settings.event_queue_size),
         ("CORE_EXECUTE_COMMAND_NAME", f'"{spec.core_settings.task_execute_command.name}"'),
         ("CORE_EXECUTE_COMMAND_SDEPTH", spec.core_settings.task_execute_command.stack_depth),
@@ -143,17 +161,17 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         ("CORE_COMMAND_COUNT", len(spec.ordered_commands)),
         ("CORE_PLACE_COUNT", len(spec.ordered_places)),
         ("CORE_EVENTS_IDS", f",\n{' ' * INDENT}".join(str(e.id) for e in spec.ordered_events)),
-        ("CORE_EVENT_DATA", str(event_transitions_cw)),
+        ("CORE_EVENT_DATA", event_transitions_cw),
         ("CORE_EVENT_TRANSITION_VECTOR", f",\n{' ' * INDENT}".join(event_transition_vector_entries)),
         ("CORE_INITIAL_MARKINGS", ", ".join(str(spec.net.initial_state[p]) for p in spec.ordered_places)),
-        ("MODULE_DATA", "/* TODO */"),  # TODO
-        ("MODULE_VARIABLES", "/* TODO */"),  # TODO
-        ("MODULE_INIT_FUNCTION_DEFINITIONS", "/* TODO */"),  # TODO
-        ("MODULE_INPUT_INTERFACE_FUNCTIONS", "/* TODO */"),  # TODO
-        ("MODULE_OUTPUT_INTERFACE_FUNCTIONS", "/* TODO */"),  # TODO
-        ("CORE_COMMAND_HANDLER_FUNCTIONS", str(command_handler_cw)),  # TODO
+        ("MODULE_DATA", module_data_cw),
+        ("MODULE_VARIABLES", module_variables_cw),
+        ("MODULE_FUNCTION_DEFINITIONS", module_function_definitions_cw),
+        ("MODULE_INPUT_INTERFACE_FUNCTIONS", module_input_interface_functions_cw),
+        ("MODULE_OUTPUT_INTERFACE_FUNCTIONS", module_output_interface_functions_cw),
+        ("CORE_COMMAND_HANDLER_FUNCTIONS", command_handler_cw),
         ("CORE_COMMAND_HANDLER_VECTOR", f",\n{' ' * INDENT}".join(command_handler_vector_entries)),
-        ("MODULE_INIT_FUNCTION_CALLS", "/* TODO */"),  # TODO
+        ("MODULE_INIT_FUNCTION_CALLS", module_init_function_calls_cw),
     ]
     src = template
     for key, value in template_kv_pairs:
