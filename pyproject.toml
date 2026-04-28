@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dessuite"
-version = "0.0.2"
+version = "0.0.3"
 authors = [{ name = "Lucas Klement", email = "lucasklementr@gmail.com" }]
 description = "Suite of tools for Discrete Event Systems (DES)"
 readme = "README.md"
