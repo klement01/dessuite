@@ -23,9 +23,14 @@
 	</Core>
 	<Modules>
 		<!-- Module settings -->
-		<HalGpio/>
+		<HalGpio>
+			<PinSuffix>_Pin</PinSuffix>
+			<PortSuffix>_Port</PortSuffix>
+		</HalGpio>
 		<HalUart>
 			<AutoEnumerate/>
+			<Handle>huart1</Handle>
+			<MessageSize>1</MessageSize>
 		</HalUart>
 	</Modules>
 	<Events>
@@ -34,9 +39,7 @@
 			<Name>RED_BUTTON_PRESSED</Name>
 			<Triggers>
 				<HalGpio>
-					<ExtI>
-						<Pin>BUTTON_RED</Pin>
-					</ExtI>
+					<Interrupt>BUTTON_RED</Interrupt>
 				</HalGpio>
 				<HalUart>
 					<Receive/>
@@ -62,9 +65,7 @@
 			<Name>GREEN_BUTTON_PRESSED</Name>
 			<Triggers>
 				<HalGpio>
-					<ExtI>
-						<Pin>BUTTON_GREEN</Pin>
-					</ExtI>
+					<Interrupt>BUTTON_GREEN</Interrupt>
 				</HalGpio>
 				<HalUart>
 					<Receive/>

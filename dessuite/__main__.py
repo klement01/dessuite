@@ -27,9 +27,6 @@ def __main__() -> int:
     parser_generator = subparsers.add_parser(
         name="generator", help="generate a Petri Net implementation for a microcontroller"
     )
-    parser_generator.add_argument(
-        "model_file", type=pathlib.Path, help="Tina Toolbox textual format file (.net) representing a Petri Net"
-    )
     parser_generator.add_argument("spec_file", type=pathlib.Path, help="dessuite specification file (.des.xml)")
     parser_generator.add_argument("out_c", type=pathlib.Path, help="generated C source file (.c) output")
     parser_generator.add_argument("out_h", type=pathlib.Path, help="generated C header file (.h) output")
@@ -50,11 +47,10 @@ def parser_controller_handler(args: argparse.Namespace) -> int:
 
 
 def parser_generator_handler(args: argparse.Namespace) -> int:
-    model_file: pathlib.Path = args.model_file
     spec_file: pathlib.Path = args.spec_file
     out_c: pathlib.Path = args.out_c
     out_h: pathlib.Path = args.out_h
-    generator.generate(model_file, spec_file, out_c, out_h)
+    generator.generate(spec_file, out_c, out_h)
     return 0
 
 
