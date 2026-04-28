@@ -1,0 +1,19 @@
+t 205.0 200.0 t3 c 0 w n ENABLE_GREEN_DISABLE_RED e
+p 205.0 335.0 p3 1 s green_off_red_on_TRANS w
+p 205.0 50.0 p0 0 n green_on_red_off_STABLE w
+t 405.0 335.0 t2 c 0 w n GREEN_BUTTON_PRESSED n
+p 595.0 335.0 p2 0 s green_off_red_on_STABLE e
+t 400.0 50.0 t0 c 0 w n RED_BUTTON_PRESSED n
+p 595.0 50.0 p1 0 n green_on_red_off_TRANS e
+t 595.0 200.0 t1 c 0 w n DISABLE_GREEN_ENABLE_RED e
+e p0 t0 1 n
+e t0 p1 1 n
+e p1 t1 1 n
+e t1 p2 1 n
+e p2 t2 1 n
+e t2 p3 1 n
+e p3 t3 1 n
+e t3 p0 1 n
+h Controller
+
+

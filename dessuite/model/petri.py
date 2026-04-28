@@ -25,7 +25,7 @@ def __always_name(name: str, _: Any) -> str:
 
 
 def __label_if_present_else_name(name: str, label: str | None) -> str:
-    return name
+    return label if label else name
 
 
 AlwaysName: Final[Extractor] = __always_name
