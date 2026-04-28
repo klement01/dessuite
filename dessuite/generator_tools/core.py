@@ -57,3 +57,6 @@ class CoreSettings:
             self.task_update_state.update_from_element_tree(m)
         if (m := core_settings.find("Tasks/SetCommand")) is not None:
             self.task_set_command.update_from_element_tree(m)
+
+        if not self.auto_enumerate_events:
+            raise ValueError("core: AutoEnumerate=False is not supported yet")

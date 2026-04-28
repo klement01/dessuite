@@ -1,7 +1,9 @@
 import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass
 
+
 import dessuite.generator_tools.modules.common as common
+import dessuite.model.des as des
 
 
 @dataclass
@@ -18,4 +20,14 @@ class ModuleHalGpioSettings:
 
 @dataclass
 class ModuleHalGpio(common.GeneratorModule):
-    def update_settings_from_element_tree(self, et: ElementTree.Element[str]): ...
+    def update_settings_from_element_tree(self, et: ElementTree.Element[str]):
+        # TODO.
+        ...
+
+    def add_trigger(self, event: des.Event, event_idx: int, et: ElementTree.Element[str]):
+        # TODO.
+        ...
+
+    def add_action(self, event: des.Event, command_idx: int, et: ElementTree.Element[str]):
+        # TODO.
+        ...

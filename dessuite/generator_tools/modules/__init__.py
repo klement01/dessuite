@@ -1,9 +1,11 @@
+from typing import TypeAlias
+
 import dessuite.generator_tools.modules.common
 import dessuite.generator_tools.modules.hal_gpio
 import dessuite.generator_tools.modules.hal_uart
-from typing import TypeAlias
+from . import common
 
-GeneratorModule: TypeAlias = dessuite.generator_tools.modules.common.GeneratorModule
+GeneratorModule: TypeAlias = common.GeneratorModule
 
 
 def get_module_from_name(name: str) -> type[dessuite.generator_tools.modules.common.GeneratorModule]:

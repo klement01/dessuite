@@ -13,30 +13,30 @@
 
 /** Module includes. **/
 
-{MODULE_INCLUDES}
+/* TODO */
 
 
 /** Core data (defines, types and constants). **/
 
 /* User parameters. */
-#define CORE_EVENT_QUEUE_SIZE ({CORE_EVENT_QUEUE_SIZE})
+#define CORE_EVENT_QUEUE_SIZE (32)
 
-#define CORE_EXECUTE_COMMAND_NAME ({CORE_EXECUTE_COMMAND_NAME})
-#define CORE_UPDATE_STATE_NAME ({CORE_UPDATE_STATE_NAME})
-#define CORE_SET_COMMAND_NAME ({CORE_SET_COMMAND_NAME})
+#define CORE_EXECUTE_COMMAND_NAME ("ExecuteCommand")
+#define CORE_UPDATE_STATE_NAME ("UpdateState")
+#define CORE_SET_COMMAND_NAME ("SetCommand")
 
-#define CORE_EXECUTE_COMMAND_SDEPTH ({CORE_EXECUTE_COMMAND_SDEPTH})
-#define CORE_UPDATE_STATE_SDEPTH ({CORE_UPDATE_STATE_SDEPTH})
-#define CORE_SET_COMMAND_SDEPTH ({CORE_SET_COMMAND_SDEPTH})
+#define CORE_EXECUTE_COMMAND_SDEPTH (configMINIMAL_STACK_SIZE)
+#define CORE_UPDATE_STATE_SDEPTH (configMINIMAL_STACK_SIZE)
+#define CORE_SET_COMMAND_SDEPTH (configMINIMAL_STACK_SIZE)
 
-#define CORE_EXECUTE_COMMAND_PRIORITY ({CORE_EXECUTE_COMMAND_PRIORITY})
-#define CORE_UPDATE_STATE_PRIORITY ({CORE_UPDATE_STATE_PRIORITY})
-#define CORE_SET_COMMAND_PRIORITY ({CORE_SET_COMMAND_PRIORITY})
+#define CORE_EXECUTE_COMMAND_PRIORITY (12)
+#define CORE_UPDATE_STATE_PRIORITY (11)
+#define CORE_SET_COMMAND_PRIORITY (10)
 
 /* Petri Net definition. */
-#define CORE_EVENT_COUNT ({CORE_EVENT_COUNT})
-#define CORE_COMMAND_COUNT ({CORE_COMMAND_COUNT})
-#define CORE_PLACE_COUNT ({CORE_PLACE_COUNT})
+#define CORE_EVENT_COUNT (4)
+#define CORE_COMMAND_COUNT (2)
+#define CORE_PLACE_COUNT (4)
 
 typedef uint8_t EventIdx_t;
 typedef uint8_t PlaceIdx_t;
@@ -46,7 +46,10 @@ typedef int8_t ArcWeight_t;
 
 enum EventIdx : EventIdx_t
 {
-  {CORE_EVENTS_IDS},
+  DISABLE_GREEN_ENABLE_RED,
+  ENABLE_GREEN_DISABLE_RED,
+  GREEN_BUTTON_PRESSED,
+  RED_BUTTON_PRESSED,
 };
 
 struct Place
@@ -68,18 +71,48 @@ struct EventTransition
   const struct TransitionArc *deltaArcs;
 };
 
-{CORE_EVENT_DATA}
+const struct TransitionArc EVENT_0_INPUT_ARCS[1] = {
+  {1, 1}
+};
+const struct TransitionArc EVENT_0_DELTA_ARCS[2] = {
+  {1, -1},
+  {2, 1}
+};
+const struct TransitionArc EVENT_1_INPUT_ARCS[1] = {
+  {3, 1}
+};
+const struct TransitionArc EVENT_1_DELTA_ARCS[2] = {
+  {0, 1},
+  {3, -1}
+};
+const struct TransitionArc EVENT_2_INPUT_ARCS[1] = {
+  {2, 1}
+};
+const struct TransitionArc EVENT_2_DELTA_ARCS[2] = {
+  {2, -1},
+  {3, 1}
+};
+const struct TransitionArc EVENT_3_INPUT_ARCS[1] = {
+  {0, 1}
+};
+const struct TransitionArc EVENT_3_DELTA_ARCS[2] = {
+  {0, -1},
+  {1, 1}
+};
 
 const struct EventTransition CORE_EVENT_TRANSITIONS[EVENT_COUNT] =
 {
-  {CORE_EVENT_TRANSITION_VECTOR},
+  {1, 2, EVENT_0_INPUT_ARCS, EVENT_0_DELTA_ARCS},
+  {1, 2, EVENT_1_INPUT_ARCS, EVENT_1_DELTA_ARCS},
+  {1, 2, EVENT_2_INPUT_ARCS, EVENT_2_DELTA_ARCS},
+  {1, 2, EVENT_3_INPUT_ARCS, EVENT_3_DELTA_ARCS},
 };
 
 
 /** Core variables. **/
 
 /* Current state. */
-struct Place corePlaces[CORE_PLACE_COUNT] = { {CORE_INITIAL_MARKINGS} };
+struct Place corePlaces[CORE_PLACE_COUNT] = { 0, 0, 0, 1 };
 
 /* Inter-task communication. */
 QueueHandle_t PendingEventsQueue;
@@ -91,27 +124,27 @@ TaskHandle_t TraceTaskHandle;
 
 /** Module data (defines, types and constants). **/
 
-{MODULE_DATA}
+/* TODO */
 
 
 /** Module variables. **/
 
-{MODULE_VARIABLES}
+/* TODO */
 
 
 /** Module initialization function definitions. **/
 
-{MODULE_INIT_FUNCTION_DEFINITIONS}
+/* TODO */
 
 
 /** Module input interface functions. **/
 
-{MODULE_INPUT_INTERFACE_FUNCTIONS}
+/* TODO */
 
 
 /** Module output interface functions. **/
 
-{MODULE_OUTPUT_INTERFACE_FUNCTIONS}
+/* TODO */
 
 
 /** Core command handler. */
@@ -122,11 +155,17 @@ struct Command
   const void (*handler)(void);
 };
 
-{CORE_COMMAND_HANDLER_FUNCTIONS}
+void COMMAND_0_HANDLER(void)
+{
+}
+void COMMAND_1_HANDLER(void)
+{
+}
 
 const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
 {
-  {CORE_COMMAND_HANDLER_VECTOR}
+  {0, COMMAND_0_HANDLER},
+  {1, COMMAND_1_HANDLER}
 };
 
 
@@ -210,5 +249,5 @@ void DesControllerSetup(void)
   xTaskCreate(SetCommand, CORE_SET_COMMAND_NAME, CORE_SET_COMMAND_SDEPTH, NULL, CORE_SET_COMMAND_PRIORITY, &SetCommandTaskHandle);
 
   /* Module initialization. */
-  {MODULE_INIT_FUNCTION_CALLS}
+  /* TODO */
 }

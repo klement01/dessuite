@@ -1,7 +1,6 @@
 <Dessuite>
 	<Core>
 		<!-- Core settings -->
-		<AutoEnumerate/>
 		<EventQueueSize>32</EventQueueSize>
 		<Tasks>
 			<ExecuteCommand>
@@ -74,7 +73,7 @@
 		</Event>
 		<!-- Command -->
 		<Event>
-			<Name>DISABLE_GREEN_ENABLE_RED</Name>
+			<Name>ENABLE_GREEN_DISABLE_RED</Name>
 			<Controllable/>
 			<Actions>
 				<HalGpio>
