@@ -130,7 +130,9 @@ TaskHandle_t TraceTaskHandle;
 
 /** Module variables. **/
 
-
+extern UART_HandleTypeDef huart1;
+uint8_t huart1_recv_buffer;
+uint8_t huart1_transmit_buffer;
 
 
 /** Module function definitions. **/
@@ -157,6 +159,24 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   }
   portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+  EventIdx_t eventIdx;
+  switch (huart1_recv_buffer)
+  {
+    case 0:
+      eventIdx = RED_BUTTON_PRESSED;
+      xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);
+      break;
+    case 2:
+      eventIdx = GREEN_BUTTON_PRESSED;
+      xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);
+      break;
+  }
+  HAL_UART_Receive_IT(&huart1, &huart1_recv_buffer, sizeof(huart1_recv_buffer));
+  portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
 
 
 /** Module output interface functions. **/
@@ -176,11 +196,15 @@ void COMMAND_0_HANDLER(void)
 {
   HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
+  huart1_transmit_buffer = 1;
+  HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
 }
 void COMMAND_1_HANDLER(void)
 {
   HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
+  huart1_transmit_buffer = 3;
+  HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
 }
 
 const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
@@ -270,5 +294,5 @@ void DesControllerSetup(void)
   xTaskCreate(SetCommand, CORE_SET_COMMAND_NAME, CORE_SET_COMMAND_SDEPTH, NULL, CORE_SET_COMMAND_PRIORITY, &SetCommandTaskHandle);
 
   /* Module initialization. */
-  
+  HAL_UART_Receive_IT(&huart1, &huart1_recv_buffer, sizeof(huart1_recv_buffer));
 }

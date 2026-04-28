@@ -35,6 +35,7 @@ class Action:
 @dataclass
 class ModuleHalGpio(common.GeneratorModule):
     settings: ModuleHalGpioSettings = field(default_factory=ModuleHalGpioSettings)
+
     exti_triggers: defaultdict[str, list[des.Event]] = field(default_factory=lambda: defaultdict(list))
     actions: defaultdict[des.Event, list[Action]] = field(default_factory=lambda: defaultdict(list))
 

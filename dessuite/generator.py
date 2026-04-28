@@ -129,7 +129,6 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
     module_input_interface_functions_cw = CodeWriter(indent=INDENT)
     module_output_interface_functions_cw = CodeWriter(indent=INDENT)
     module_init_function_calls_cw = CodeWriter(indent=INDENT)
-    module_init_function_calls_cw.indent()
     for module in spec.modules.values():
         module.write_includes(module_includes_cw)
         module.write_data(module_data_cw)
