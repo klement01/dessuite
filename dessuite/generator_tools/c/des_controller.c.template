@@ -10,6 +10,7 @@
 #include "projdefs.h"
 #include "task.h"
 #include "queue.h"
+#include "main.h"
 
 /** Module includes. **/
 
@@ -70,7 +71,7 @@ struct EventTransition
 
 {CORE_EVENT_DATA}
 
-const struct EventTransition CORE_EVENT_TRANSITIONS[EVENT_COUNT] =
+const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
 {
   {CORE_EVENT_TRANSITION_VECTOR},
 };
@@ -150,7 +151,7 @@ void ExecuteCommand(void*)
   {
     const CommandIdx_t commandIdx = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     const EventIdx_t eventIdx = CORE_COMMANDS[commandIdx].eventIdx;
-    if (xQueueSendToBack(PendingEventsQueue, &eventIdx, 0) != pdPASS)
+    xQueueSendToBack(PendingEventsQueue, &eventIdx, 0);
     CORE_COMMANDS[commandIdx].handler();
   }
 }
@@ -183,7 +184,7 @@ void SetCommand(void*)
     do
     {
       commandFound = false;
-      for (commandIdx = 0; commandIdx < COMMAND_COUNT; ++commandIdx)
+      for (commandIdx = 0; commandIdx < CORE_COMMAND_COUNT; ++commandIdx)
       {
         if (EventTransitionIsEnabled(CORE_COMMANDS[commandIdx].eventIdx))
         {

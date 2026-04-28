@@ -46,22 +46,17 @@ class GeneratorSpec:
 
         for et_event in tree.iterfind("Events/Event"):
             event = des.Event(str(et_event.find("Name").text))  # pyright: ignore[reportOptionalMemberAccess]
-            try:
-                event_index = self.ordered_events.index(event)
-            except ValueError:
-                raise ValueError(f"event in spec but not in net: {event.id}")
 
             event_controllable = bool(et_event.findall("Controllable")) or bool(et_event.findall("Actions"))
             if event_controllable:
                 self.ordered_commands.append(event)
-                command_index = self.ordered_commands.index(event)
                 for et_action in et_event.iterfind("Actions/*"):
                     module = self.modules[et_action.tag]
-                    module.add_action(event, command_index, et_action)
+                    module.add_action(event, et_action)
 
             for et_trigger in et_event.iterfind("Triggers/*"):
                 module = self.modules[et_trigger.tag]
-                module.add_trigger(event, event_index, et_trigger)
+                module.add_trigger(event, et_trigger)
 
 
 def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
@@ -122,7 +117,7 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         event_idx = spec.ordered_events.index(command)
         handler = Function(f"COMMAND_{command_idx}_HANDLER")
         for module in spec.modules.values():
-            module.write_actions(command_idx, handler)
+            module.write_actions(command, handler)
         command_handler_cw.add_function_definition(handler)
         command_handler_vector_entries.append("{" + ", ".join(str(i) for i in (event_idx, handler.name)) + "}")
 
@@ -163,7 +158,7 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         ("CORE_EVENTS_IDS", f",\n{' ' * INDENT}".join(str(e.id) for e in spec.ordered_events)),
         ("CORE_EVENT_DATA", event_transitions_cw),
         ("CORE_EVENT_TRANSITION_VECTOR", f",\n{' ' * INDENT}".join(event_transition_vector_entries)),
-        ("CORE_INITIAL_MARKINGS", ", ".join(str(spec.net.initial_state[p]) for p in spec.ordered_places)),
+        ("CORE_INITIAL_MARKINGS", ", ".join(f"{{{spec.net.initial_state[p]}}}" for p in spec.ordered_places)),
         ("MODULE_DATA", module_data_cw),
         ("MODULE_VARIABLES", module_variables_cw),
         ("MODULE_FUNCTION_DEFINITIONS", module_function_definitions_cw),

@@ -22,7 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "des_controller.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -32,7 +32,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+// Disable default task creation forced by STM32CubeMX.
+#undef osThreadNew
+#define osThreadNew(a, b, c) (NULL)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -100,7 +102,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  DesControllerSetup();
   /* USER CODE END 2 */
 
   /* Init scheduler */

@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ElementTree
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 from dessuite.generator_tools.util import key_is_truthy
@@ -29,14 +29,8 @@ class ModuleHalUartSettings:
 
 @dataclass
 class ModuleHalUart(common.GeneratorModule):
+    settings: ModuleHalUartSettings = field(default_factory=ModuleHalUartSettings)
+
     def update_settings_from_element_tree(self, et: ElementTree.Element[str]):
-        # TODO.
-        ...
-
-    def add_trigger(self, event: des.Event, event_idx: int, et: ElementTree.Element[str]):
-        # TODO.
-        ...
-
-    def add_action(self, event: des.Event, command_idx: int, et: ElementTree.Element[str]):
-        # TODO.
-        ...
+        self.settings.update_from_element_tree(et)
+ 

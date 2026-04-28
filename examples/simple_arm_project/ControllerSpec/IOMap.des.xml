@@ -7,7 +7,7 @@
 		<!-- Module settings -->
 		<HalGpio>
 			<PinSuffix>_Pin</PinSuffix>
-			<PortSuffix>_Port</PortSuffix>
+			<PortSuffix>_GPIO_Port</PortSuffix>
 		</HalGpio>
 		<HalUart>
 			<AutoEnumerate/>
@@ -33,8 +33,8 @@
 			<Controllable/>
 			<Actions>
 				<HalGpio>
-					<Set>GREEN_LED</Set>
-					<Reset>RED_LED</Reset>
+					<Set>LED_GREEN</Set>
+					<Reset>LED_RED</Reset>
 				</HalGpio>
 				<HalUart>
 					<Transmit/>
@@ -59,8 +59,8 @@
 			<Controllable/>
 			<Actions>
 				<HalGpio>
-					<Reset>GREEN_LED</Reset>
-					<Set>RED_LED</Set>
+					<Reset>LED_GREEN</Reset>
+					<Set>LED_RED</Set>
 				</HalGpio>
 				<HalUart>
 					<Transmit/>

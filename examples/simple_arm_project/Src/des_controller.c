@@ -10,6 +10,7 @@
 #include "projdefs.h"
 #include "task.h"
 #include "queue.h"
+#include "main.h"
 
 /** Module includes. **/
 
@@ -100,7 +101,7 @@ const struct TransitionArc EVENT_3_DELTA_ARCS[2] = {
   {1, 1}
 };
 
-const struct EventTransition CORE_EVENT_TRANSITIONS[EVENT_COUNT] =
+const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
 {
   {1, 2, EVENT_0_INPUT_ARCS, EVENT_0_DELTA_ARCS},
   {1, 2, EVENT_1_INPUT_ARCS, EVENT_1_DELTA_ARCS},
@@ -112,7 +113,7 @@ const struct EventTransition CORE_EVENT_TRANSITIONS[EVENT_COUNT] =
 /** Core variables. **/
 
 /* Current state. */
-struct Place corePlaces[CORE_PLACE_COUNT] = { 0, 0, 0, 1 };
+struct Place corePlaces[CORE_PLACE_COUNT] = { {0}, {0}, {0}, {1} };
 
 /* Inter-task communication. */
 QueueHandle_t PendingEventsQueue;
@@ -139,7 +140,23 @@ TaskHandle_t TraceTaskHandle;
 
 /** Module input interface functions. **/
 
-
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+  EventIdx_t eventIdx;
+  switch (GPIO_Pin)
+  {
+    case BUTTON_RED_Pin:
+      eventIdx = RED_BUTTON_PRESSED;
+      xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);
+      break;
+    case BUTTON_GREEN_Pin:
+      eventIdx = GREEN_BUTTON_PRESSED;
+      xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);
+      break;
+  }
+  portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
 
 
 /** Module output interface functions. **/
@@ -157,9 +174,13 @@ struct Command
 
 void COMMAND_0_HANDLER(void)
 {
+  HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
 }
 void COMMAND_1_HANDLER(void)
 {
+  HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
 }
 
 const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
@@ -189,7 +210,7 @@ void ExecuteCommand(void*)
   {
     const CommandIdx_t commandIdx = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     const EventIdx_t eventIdx = CORE_COMMANDS[commandIdx].eventIdx;
-    if (xQueueSendToBack(PendingEventsQueue, &eventIdx, 0) != pdPASS)
+    xQueueSendToBack(PendingEventsQueue, &eventIdx, 0);
     CORE_COMMANDS[commandIdx].handler();
   }
 }
@@ -222,7 +243,7 @@ void SetCommand(void*)
     do
     {
       commandFound = false;
-      for (commandIdx = 0; commandIdx < COMMAND_COUNT; ++commandIdx)
+      for (commandIdx = 0; commandIdx < CORE_COMMAND_COUNT; ++commandIdx)
       {
         if (EventTransitionIsEnabled(CORE_COMMANDS[commandIdx].eventIdx))
         {

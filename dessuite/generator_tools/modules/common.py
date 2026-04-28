@@ -12,13 +12,13 @@ class GeneratorModule(abc.ABC):
     def update_settings_from_element_tree(self, et: ElementTree.Element[str]):
         pass
 
-    def add_trigger(self, event: des.Event, event_idx: int, et: ElementTree.Element[str]):
+    def add_trigger(self, event: des.Event, et: ElementTree.Element[str]):
         pass
 
-    def add_action(self, event: des.Event, command_idx: int, et: ElementTree.Element[str]):
+    def add_action(self, event: des.Event, et: ElementTree.Element[str]):
         pass
 
-    def write_actions(self, command_idx: int, function: Function):
+    def write_actions(self, event: des.Event, function: Function):
         pass
 
     def write_includes(self, writer: CodeWriter):
