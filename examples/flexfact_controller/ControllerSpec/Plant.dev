@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
+<!DOCTYPE ModbusDevice SYSTEM "http://www.faudes.org/dtd/1.0/modbusdevice.dtd">
+<ModbusDevice name="PlantSupervisor">
+<TimeScale value="10"/>
+<SampleInterval value="1000"/>
+<SynchronousWrite value="true"/>
+<Role value="master"/>
+<SlaveAddress value="localhost:1502"/>
+<RemoteImage>
+<Inputs mbaddr="0" count="15"/>
+<Outputs mbaddr="0" count="15"/>
+</RemoteImage>
+<EventConfiguration>
+<Event name="cb1_bm+" iotype="output">
+<Actions>
+<Clr address="1"/>
+<Set address="0"/>
+</Actions>
+</Event>
+<Event name="cb1_bm-" iotype="output">
+<Actions>
+<Clr address="0"/>
+<Set address="1"/>
+</Actions>
+</Event>
+<Event name="cb1_boff" iotype="output">
+<Actions>
+<Clr address="0"/>
+<Clr address="1"/>
+</Actions>
+</Event>
+<Event name="op_l1off" iotype="output">
+<Actions>
+<Clr address="3"/>
+</Actions>
+</Event>
+<Event name="op_l1on" iotype="output">
+<Actions>
+<Set address="3"/>
+</Actions>
+</Event>
+<Event name="op_l2off" iotype="output">
+<Actions>
+<Clr address="4"/>
+</Actions>
+</Event>
+<Event name="op_l2on" iotype="output">
+<Actions>
+<Set address="4"/>
+</Actions>
+</Event>
+<Event name="op_l3off" iotype="output">
+<Actions>
+<Clr address="5"/>
+</Actions>
+</Event>
+<Event name="op_l3on" iotype="output">
+<Actions>
+<Set address="5"/>
+</Actions>
+</Event>
+<Event name="op_l4off" iotype="output">
+<Actions>
+<Clr address="6"/>
+</Actions>
+</Event>
+<Event name="op_l4on" iotype="output">
+<Actions>
+<Set address="6"/>
+</Actions>
+</Event>
+<Event name="sf1_fdoff" iotype="output">
+<Actions>
+<Clr address="11"/>
+</Actions>
+</Event>
+<Event name="sf1_fdon" iotype="output">
+<Actions>
+<Set address="11"/>
+</Actions>
+</Event>
+<Event name="cb1_wpar" iotype="input">
+<Triggers>
+<PositiveEdge address="2"/>
+</Triggers>
+</Event>
+<Event name="cb1_wplv" iotype="input">
+<Triggers>
+<NegativeEdge address="2"/>
+</Triggers>
+</Event>
+<Event name="op_s1act" iotype="input">
+<Triggers>
+<PositiveEdge address="7"/>
+</Triggers>
+</Event>
+<Event name="op_s1rel" iotype="input">
+<Triggers>
+<NegativeEdge address="7"/>
+</Triggers>
+</Event>
+<Event name="op_s2act" iotype="input">
+<Triggers>
+<PositiveEdge address="8"/>
+</Triggers>
+</Event>
+<Event name="op_s2rel" iotype="input">
+<Triggers>
+<NegativeEdge address="8"/>
+</Triggers>
+</Event>
+<Event name="op_s3act" iotype="input">
+<Triggers>
+<PositiveEdge address="9"/>
+</Triggers>
+</Event>
+<Event name="op_s3rel" iotype="input">
+<Triggers>
+<NegativeEdge address="9"/>
+</Triggers>
+</Event>
+<Event name="op_s4act" iotype="input">
+<Triggers>
+<PositiveEdge address="10"/>
+</Triggers>
+</Event>
+<Event name="op_s4rel" iotype="input">
+<Triggers>
+<NegativeEdge address="10"/>
+</Triggers>
+</Event>
+<Event name="sf1_fdhome" iotype="input">
+<Triggers>
+<PositiveEdge address="12"/>
+</Triggers>
+</Event>
+<Event name="sf1_wpar" iotype="input">
+<Triggers>
+<PositiveEdge address="13"/>
+</Triggers>
+</Event>
+<Event name="sf1_wplv" iotype="input">
+<Triggers>
+<NegativeEdge address="13"/>
+</Triggers>
+</Event>
+<Event name="xs1_wpar" iotype="input">
+<Triggers>
+<PositiveEdge address="14"/>
+</Triggers>
+</Event>
+<Event name="xs1_wplv" iotype="input">
+<Triggers>
+<NegativeEdge address="14"/>
+</Triggers>
+</Event>
+</EventConfiguration>
+</ModbusDevice>

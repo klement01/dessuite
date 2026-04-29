@@ -1,0 +1,18 @@
+tr {cb1_bm+} [0,w[ cb1_OFF sf1_cb1_transit?1 slide_box_ON?-1 -> cb1_ON
+tr cb1_boff [0,w[ cb1_ON cb1_xs1_transit?-1 cb1_box_ON?-1 sf1_cb1_transit?-1 -> cb1_OFF
+tr sf1_wpar [0,w[ -> sf1_box_ON
+tr sf1_wplv [0,w[ sf1_box_ON -> sf1_cb1_transit
+tr cb1_wpar [0,w[ sf1_cb1_transit -> cb1_box_ON
+tr cb1_wplv [0,w[ cb1_box_ON -> cb1_xs1_transit
+tr xs1_wpar [0,w[ cb1_xs1_transit -> slide_box_ON
+tr xs1_wplv [0,w[ slide_box_ON ->
+tr sf1_fdhome [0,w[ sf1_pusher_home?-1 -> sf1_pusher_home
+tr sf1_fdon [0,w[ sf1_OFF sf1_box_ON?1 slide_box_ON?-1 -> sf1_ON
+tr sf1_fdoff [0,w[ sf1_pusher_home sf1_ON -> sf1_OFF
+pl cb1_OFF (1)
+pl sf1_OFF (1)
+an n0 1 {Stack Feeder}
+an n3 1 {Conveyor Belt}
+an n2 1 {Exit Slide}
+net Controller
+

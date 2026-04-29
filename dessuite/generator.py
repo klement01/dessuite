@@ -15,8 +15,8 @@ import dessuite.model.petri as petri
 class GeneratorSpec:
     # Base net.
     net: petri.Petri
-    ordered_events: list[des.Event]
-    ordered_commands: list[des.Event]
+    ordered_events: list[core.CoreEvent]
+    ordered_commands: list[core.CoreEvent]
     ordered_places: list[petri.Place]
 
     # Other configs.
@@ -25,7 +25,10 @@ class GeneratorSpec:
 
     @staticmethod
     def initialize_from_net(net: petri.Petri) -> GeneratorSpec:
-        ordered_events = sorted(net.events, key=lambda e: str(e.id))
+        ordered_events = [
+            core.CoreEvent(event=event, event_name=f"EVENT_{idx}", event_idx=idx)
+            for idx, event in enumerate(sorted(net.events, key=lambda e: str(e.id)))
+        ]
         ordered_commands = []
         ordered_places = sorted(net.places, key=lambda p: str(p.id))
         return GeneratorSpec(
@@ -46,17 +49,18 @@ class GeneratorSpec:
 
         for et_event in tree.iterfind("Events/Event"):
             event = des.Event(str(et_event.find("Name").text))  # pyright: ignore[reportOptionalMemberAccess]
+            core_event = next(ce for ce in self.ordered_events if ce.event == event)
 
             event_controllable = bool(et_event.findall("Controllable")) or bool(et_event.findall("Actions"))
             if event_controllable:
-                self.ordered_commands.append(event)
+                self.ordered_commands.append(core_event)
                 for et_action in et_event.iterfind("Actions/*"):
                     module = self.modules[et_action.tag]
-                    module.add_action(event, et_action)
+                    module.add_action(core_event, et_action)
 
             for et_trigger in et_event.iterfind("Triggers/*"):
                 module = self.modules[et_trigger.tag]
-                module.add_trigger(event, et_trigger)
+                module.add_trigger(core_event, et_trigger)
 
 
 def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
@@ -70,11 +74,17 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
     with c_files.DES_CONTROLLER_C_TEMPLATE.open(mode="r", encoding="utf-8") as f:
         template = f.read()
 
-    # Event transitions.
+    # Events.
+    event_names = (f"\n{' ' * INDENT}").join(
+        f"{core_event.event_name}, // {str(core_event.event.id)}" for core_event in spec.ordered_events
+    )
     event_transitions_cw = CodeWriter(indent=INDENT)
     event_transition_vector_entries = []
-    for event_idx, event in enumerate(spec.ordered_events):
-        transition = spec.net.transitions[event]
+    for core_event in spec.ordered_events:
+        transition = spec.net.transitions[core_event.event]
+        inhibitor_arcs = {
+            p_idx: w for p_idx, p in enumerate(spec.ordered_places) if (w := transition.inhibitor_weights[p]) != 0
+        }
         input_arcs = {
             p_idx: w
             for p_idx, p in enumerate(spec.ordered_places)
@@ -86,26 +96,42 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
             if (w := transition.output_weights[p] - transition.input_weights[p]) != 0
         }
 
+        inhibitor_arcs_var = Variable(
+            f"{core_event.event_name}_INHIBITOR_ARCS",
+            primitive="struct TransitionArc",
+            qualifiers="const",
+            value=inhibitor_arcs.items(),  # type: ignore
+            array=len(inhibitor_arcs),  # type: ignore
+        )
         input_arcs_var = Variable(
-            f"EVENT_{event_idx}_INPUT_ARCS",
+            f"{core_event.event_name}_INPUT_ARCS",
             primitive="struct TransitionArc",
             qualifiers="const",
             value=input_arcs.items(),  # type: ignore
             array=len(input_arcs),  # type: ignore
         )
         delta_arcs_var = Variable(
-            f"EVENT_{event_idx}_DELTA_ARCS",
+            f"{core_event.event_name}_DELTA_ARCS",
             primitive="struct TransitionArc",
             qualifiers="const",
             value=delta_arcs.items(),  # type: ignore
             array=len(delta_arcs),  # type: ignore
         )
+        event_transitions_cw.add_variable_initialization(inhibitor_arcs_var)
         event_transitions_cw.add_variable_initialization(input_arcs_var)
         event_transitions_cw.add_variable_initialization(delta_arcs_var)
         event_transition_vector_entries.append(
             "{"
             + ", ".join(
-                str(i) for i in (input_arcs_var.array, delta_arcs_var.array, input_arcs_var.name, delta_arcs_var.name)
+                str(i)
+                for i in (
+                    inhibitor_arcs_var.array,
+                    input_arcs_var.array,
+                    delta_arcs_var.array,
+                    inhibitor_arcs_var.name,
+                    input_arcs_var.name,
+                    delta_arcs_var.name,
+                )
             )
             + "}"
         )
@@ -113,13 +139,14 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
     # Commands.
     command_handler_cw = CodeWriter(indent=INDENT)
     command_handler_vector_entries = []
-    for command_idx, command in enumerate(spec.ordered_commands):
-        event_idx = spec.ordered_events.index(command)
-        handler = Function(f"COMMAND_{command_idx}_HANDLER")
+    for core_command in spec.ordered_commands:
+        handler = Function(f"{core_command.event_name}_COMMAND_HANDLER")
         for module in spec.modules.values():
-            module.write_actions(command, handler)
+            module.write_actions(core_command, handler)
         command_handler_cw.add_function_definition(handler)
-        command_handler_vector_entries.append("{" + ", ".join(str(i) for i in (event_idx, handler.name)) + "}")
+        command_handler_vector_entries.append(
+            "{" + ", ".join(str(i) for i in (core_command.event_idx, handler.name)) + "}"
+        )
 
     # Other module data.
     module_includes_cw = CodeWriter(indent=INDENT)
@@ -129,6 +156,7 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
     module_input_interface_functions_cw = CodeWriter(indent=INDENT)
     module_output_interface_functions_cw = CodeWriter(indent=INDENT)
     module_init_function_calls_cw = CodeWriter(indent=INDENT)
+    module_init_function_calls_cw.indent()
     for module in spec.modules.values():
         module.write_includes(module_includes_cw)
         module.write_data(module_data_cw)
@@ -154,7 +182,7 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         ("CORE_EVENT_COUNT", len(spec.ordered_events)),
         ("CORE_COMMAND_COUNT", len(spec.ordered_commands)),
         ("CORE_PLACE_COUNT", len(spec.ordered_places)),
-        ("CORE_EVENTS_IDS", f",\n{' ' * INDENT}".join(str(e.id) for e in spec.ordered_events)),
+        ("CORE_EVENTS_IDS", event_names),
         ("CORE_EVENT_DATA", event_transitions_cw),
         ("CORE_EVENT_TRANSITION_VECTOR", f",\n{' ' * INDENT}".join(event_transition_vector_entries)),
         ("CORE_INITIAL_MARKINGS", ", ".join(f"{{{spec.net.initial_state[p]}}}" for p in spec.ordered_places)),

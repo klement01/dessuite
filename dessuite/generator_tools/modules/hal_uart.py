@@ -3,9 +3,9 @@ from dataclasses import dataclass, field
 
 from csnake import CodeWriter, Function
 
+import dessuite.generator_tools.core as core
 from dessuite.generator_tools.util import key_is_truthy
 import dessuite.generator_tools.modules.common as common
-import dessuite.model.des as des
 
 
 @dataclass
@@ -41,24 +41,24 @@ class ModuleHalUart(common.GeneratorModule):
     settings: ModuleHalUartSettings = field(default_factory=ModuleHalUartSettings)
 
     event_index_acc: int = 0
-    recv_triggers: dict[int, des.Event] = field(default_factory=dict)
-    transmit_actions: dict[des.Event, list[int]] = field(default_factory=dict)
+    recv_triggers: dict[int, core.CoreEvent] = field(default_factory=dict)
+    transmit_actions: dict[core.CoreEvent, list[int]] = field(default_factory=dict)
 
     def update_settings_from_element_tree(self, et: ElementTree.Element[str]):
         self.settings.update_from_element_tree(et)
 
-    def add_trigger(self, event: des.Event, et: ElementTree.Element[str]):
+    def add_trigger(self, core_event: core.CoreEvent, et: ElementTree.Element[str]):
         for _ in et.iterfind("Receive"):
-            self.recv_triggers[self.event_index_acc] = event
+            self.recv_triggers[self.event_index_acc] = core_event
             self.event_index_acc += 1
 
-    def add_action(self, event: des.Event, et: ElementTree.Element[str]):
+    def add_action(self, core_event: core.CoreEvent, et: ElementTree.Element[str]):
         event_actions = []
         for _ in et.iterfind("Transmit"):
             event_actions.append(self.event_index_acc)
             self.event_index_acc += 1
         if event_actions:
-            self.transmit_actions[event] = event_actions
+            self.transmit_actions[core_event] = event_actions
 
     def write_variables(self, writer: CodeWriter):
         writer.add_line(f"extern UART_HandleTypeDef {self.settings.handle};")
@@ -83,10 +83,10 @@ class ModuleHalUart(common.GeneratorModule):
         writer.add_line(f"switch ({self.settings.recv_buffer})")
         writer.open_brace()
 
-        for value, event in self.recv_triggers.items():
+        for value, core_event in self.recv_triggers.items():
             writer.add_line(f"case {value}:")
             writer.indent()
-            writer.add_line(f"eventIdx = {str(event.id)};")
+            writer.add_line(f"eventIdx = {core_event.event_name};")
             writer.add_line("xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);")
             writer.add_switch_break()
 
@@ -98,11 +98,11 @@ class ModuleHalUart(common.GeneratorModule):
 
         writer.close_brace()
 
-    def write_actions(self, event: des.Event, function: Function):
-        if event not in self.transmit_actions:
+    def write_actions(self, core_event: core.CoreEvent, function: Function):
+        if core_event not in self.transmit_actions:
             return
 
-        for value in self.transmit_actions[event]:
+        for value in self.transmit_actions[core_event]:
             function.add_code(f"{self.settings.transmit_buffer} = {value};")
             function.add_code(
                 f"HAL_UART_Transmit_IT(&{self.settings.handle}, &{self.settings.transmit_buffer}, sizeof({self.settings.transmit_buffer}));;"
