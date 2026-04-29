@@ -1,0 +1,27 @@
+p 50.0 50.0 p0 1 n all_off_1 s
+p 280.0 50.0 p1 0 n L1_on s
+t 165.0 50.0 t0 c 0 w n op_l1on s
+t 420.0 50.0 t1 c 0 w n op_s2rel s
+p 575.0 50.0 p2 0 n L1_on_CMD s
+p 575.0 270.0 p3 0 n all_off_2 s
+t 575.0 160.0 t2 c 0 w n op_l1off e
+t 425.0 270.0 t3 c 0 w n op_l2on s
+p 280.0 270.0 p4 0 n L2_on s
+t 160.0 270.0 t4 c 0 w n op_s1rel s
+t 50.0 160.0 t5 c 0 w n op_l2off e
+p 50.0 270.0 p5 0 n L2_on_CMD s
+e t4 p5 1 n
+e p4 t4 1 n
+e t5 p0 1 n
+e p5 t5 1 n
+e t3 p4 1 n
+e p3 t3 1 n
+e t2 p3 1 n
+e p2 t2 1 n
+e t1 p2 1 n
+e p1 t1 1 n
+e t0 p1 1 n
+e p0 t0 1 n
+h Controller
+
+

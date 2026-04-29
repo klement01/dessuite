@@ -1,0 +1,14 @@
+tr t0 : op_l1on [0,w[ p0 -> p1
+tr t1 : op_s2rel [0,w[ p1 -> p2
+tr t2 : op_l1off [0,w[ p2 -> p3
+tr t3 : op_l2on [0,w[ p3 -> p4
+tr t4 : op_s1rel [0,w[ p4 -> p5
+tr t5 : op_l2off [0,w[ p5 -> p0
+pl p0 : all_off_1 (1)
+pl p1 : L1_on
+pl p2 : L1_on_CMD
+pl p3 : all_off_2
+pl p4 : L2_on
+pl p5 : L2_on_CMD
+net Controller
+
