@@ -35,9 +35,9 @@
 #define CORE_SET_COMMAND_PRIORITY (10)
 
 /* Petri Net definition. */
-#define CORE_EVENT_COUNT (4)
-#define CORE_COMMAND_COUNT (2)
-#define CORE_PLACE_COUNT (4)
+#define CORE_EVENT_COUNT (6)
+#define CORE_COMMAND_COUNT (4)
+#define CORE_PLACE_COUNT (6)
 
 typedef uint8_t EventIdx_t;
 typedef uint8_t PlaceIdx_t;
@@ -47,10 +47,12 @@ typedef int8_t ArcWeight_t;
 
 enum EventIdx : EventIdx_t
 {
-  DISABLE_GREEN_ENABLE_RED,
-  ENABLE_GREEN_DISABLE_RED,
-  GREEN_BUTTON_PRESSED,
-  RED_BUTTON_PRESSED,
+  op_l1off,
+  op_l1on,
+  op_l2off,
+  op_l2on,
+  op_s1rel,
+  op_s2rel,
 };
 
 struct Place
@@ -73,32 +75,46 @@ struct EventTransition
 };
 
 const struct TransitionArc EVENT_0_INPUT_ARCS[1] = {
-  {1, 1}
+  {2, 1}
 };
 const struct TransitionArc EVENT_0_DELTA_ARCS[2] = {
-  {1, -1},
-  {2, 1}
-};
-const struct TransitionArc EVENT_1_INPUT_ARCS[1] = {
-  {3, 1}
-};
-const struct TransitionArc EVENT_1_DELTA_ARCS[2] = {
-  {0, 1},
-  {3, -1}
-};
-const struct TransitionArc EVENT_2_INPUT_ARCS[1] = {
-  {2, 1}
-};
-const struct TransitionArc EVENT_2_DELTA_ARCS[2] = {
   {2, -1},
   {3, 1}
 };
-const struct TransitionArc EVENT_3_INPUT_ARCS[1] = {
+const struct TransitionArc EVENT_1_INPUT_ARCS[1] = {
   {0, 1}
 };
-const struct TransitionArc EVENT_3_DELTA_ARCS[2] = {
+const struct TransitionArc EVENT_1_DELTA_ARCS[2] = {
   {0, -1},
   {1, 1}
+};
+const struct TransitionArc EVENT_2_INPUT_ARCS[1] = {
+  {5, 1}
+};
+const struct TransitionArc EVENT_2_DELTA_ARCS[2] = {
+  {0, 1},
+  {5, -1}
+};
+const struct TransitionArc EVENT_3_INPUT_ARCS[1] = {
+  {3, 1}
+};
+const struct TransitionArc EVENT_3_DELTA_ARCS[2] = {
+  {3, -1},
+  {4, 1}
+};
+const struct TransitionArc EVENT_4_INPUT_ARCS[1] = {
+  {4, 1}
+};
+const struct TransitionArc EVENT_4_DELTA_ARCS[2] = {
+  {4, -1},
+  {5, 1}
+};
+const struct TransitionArc EVENT_5_INPUT_ARCS[1] = {
+  {1, 1}
+};
+const struct TransitionArc EVENT_5_DELTA_ARCS[2] = {
+  {1, -1},
+  {2, 1}
 };
 
 const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
@@ -107,13 +123,15 @@ const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
   {1, 2, EVENT_1_INPUT_ARCS, EVENT_1_DELTA_ARCS},
   {1, 2, EVENT_2_INPUT_ARCS, EVENT_2_DELTA_ARCS},
   {1, 2, EVENT_3_INPUT_ARCS, EVENT_3_DELTA_ARCS},
+  {1, 2, EVENT_4_INPUT_ARCS, EVENT_4_DELTA_ARCS},
+  {1, 2, EVENT_5_INPUT_ARCS, EVENT_5_DELTA_ARCS},
 };
 
 
 /** Core variables. **/
 
 /* Current state. */
-struct Place corePlaces[CORE_PLACE_COUNT] = { {0}, {0}, {0}, {1} };
+struct Place corePlaces[CORE_PLACE_COUNT] = { {1}, {0}, {0}, {0}, {0}, {0} };
 
 /* Inter-task communication. */
 QueueHandle_t PendingEventsQueue;
@@ -149,11 +167,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   switch (GPIO_Pin)
   {
     case BUTTON_RED_Pin:
-      eventIdx = RED_BUTTON_PRESSED;
+      eventIdx = op_s2rel;
       xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);
       break;
     case BUTTON_GREEN_Pin:
-      eventIdx = GREEN_BUTTON_PRESSED;
+      eventIdx = op_s1rel;
       xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);
       break;
   }
@@ -166,11 +184,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   switch (huart1_recv_buffer)
   {
     case 0:
-      eventIdx = RED_BUTTON_PRESSED;
+      eventIdx = op_s2rel;
       xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);
       break;
-    case 2:
-      eventIdx = GREEN_BUTTON_PRESSED;
+    case 3:
+      eventIdx = op_s1rel;
       xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);
       break;
   }
@@ -195,22 +213,34 @@ struct Command
 void COMMAND_0_HANDLER(void)
 {
   HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
   huart1_transmit_buffer = 1;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
 }
 void COMMAND_1_HANDLER(void)
 {
-  HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
+  huart1_transmit_buffer = 2;
+  HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+}
+void COMMAND_2_HANDLER(void)
+{
   HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
-  huart1_transmit_buffer = 3;
+  huart1_transmit_buffer = 4;
+  HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+}
+void COMMAND_3_HANDLER(void)
+{
+  HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
+  huart1_transmit_buffer = 5;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
 }
 
 const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
 {
   {0, COMMAND_0_HANDLER},
-  {1, COMMAND_1_HANDLER}
+  {3, COMMAND_1_HANDLER},
+  {2, COMMAND_2_HANDLER},
+  {1, COMMAND_3_HANDLER}
 };
 
 

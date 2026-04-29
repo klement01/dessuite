@@ -39,9 +39,9 @@ class DesSerialClient:
         self.client = serial.Serial(port=port, baudrate=baud_rate, **kwargs)
 
     def send_event(self, event: des.Event):
-        for n in self.outgoing_events[event]:
+        for n in self.outgoing_events.get(event, []):
             self.client.write(n.to_bytes(self.message_size))
 
     def receive_events(self) -> set[des.Event]:
         recv = int.from_bytes(self.client.read(self.message_size))
-        return self.incoming_events.get(recv) or set()
+        return self.incoming_events.get(recv, set())

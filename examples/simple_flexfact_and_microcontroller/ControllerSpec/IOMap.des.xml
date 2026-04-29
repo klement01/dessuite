@@ -17,7 +17,7 @@
 	<Events>
 		<!-- External event -->
 		<Event>
-			<Name>RED_BUTTON_PRESSED</Name>
+			<Name>op_s2rel</Name>
 			<Triggers>
 				<HalGpio>
 					<Interrupt>BUTTON_RED</Interrupt>
@@ -29,11 +29,22 @@
 		</Event>
 		<!-- Command -->
 		<Event>
-			<Name>DISABLE_GREEN_ENABLE_RED</Name>
+			<Name>op_l1off</Name>
 			<Controllable/>
 			<Actions>
 				<HalGpio>
 					<Set>LED_GREEN</Set>
+				</HalGpio>
+				<HalUart>
+					<Transmit/>
+				</HalUart>
+			</Actions>
+		</Event>
+		<Event>
+			<Name>op_l2on</Name>
+			<Controllable/>
+			<Actions>
+				<HalGpio>
 					<Reset>LED_RED</Reset>
 				</HalGpio>
 				<HalUart>
@@ -43,7 +54,7 @@
 		</Event>
 		<!-- External event -->
 		<Event>
-			<Name>GREEN_BUTTON_PRESSED</Name>
+			<Name>op_s1rel</Name>
 			<Triggers>
 				<HalGpio>
 					<Interrupt>BUTTON_GREEN</Interrupt>
@@ -55,12 +66,23 @@
 		</Event>
 		<!-- Command -->
 		<Event>
-			<Name>ENABLE_GREEN_DISABLE_RED</Name>
+			<Name>op_l2off</Name>
+			<Controllable/>
+			<Actions>
+				<HalGpio>
+					<Set>LED_RED</Set>
+				</HalGpio>
+				<HalUart>
+					<Transmit/>
+				</HalUart>
+			</Actions>
+		</Event>
+		<Event>
+			<Name>op_l1on</Name>
 			<Controllable/>
 			<Actions>
 				<HalGpio>
 					<Reset>LED_GREEN</Reset>
-					<Set>LED_RED</Set>
 				</HalGpio>
 				<HalUart>
 					<Transmit/>

@@ -29,7 +29,7 @@ def gateway(model_file: Path, modbus_device_file: Path, spec_file: Path, port: s
         modbus_client.connect()
         show("(Modbus) Connected!")
 
-        threading.Thread(target=gateway_modbus_to_serial, args=(modbus_client, serial_client)).start()
+        threading.Thread(target=gateway_modbus_to_serial, args=(modbus_client, serial_client), daemon=True).start()
         gateway_serial_to_modbus(modbus_client, serial_client)
 
     except ConnectionAbortedError:
@@ -41,21 +41,23 @@ def gateway(model_file: Path, modbus_device_file: Path, spec_file: Path, port: s
 
 
 def gateway_modbus_to_serial(modbus_client: modbus.DesModbusTcpClient, serial_client: serial.DesSerialClient):
-    new_events = modbus_client.receive_events()
-    if new_events:
-        show(f"(Modbus) Received events: {new_events}")
-    for event in new_events:
-        serial_client.send_event(event)
-        show(f"(Serial) Sent event: {event}")
+    while True:
+        new_events = modbus_client.receive_events()
+        if new_events:
+            show(f"(Modbus) Received events: {new_events}")
+        for event in new_events:
+            serial_client.send_event(event)
+            show(f"(Serial) Sent event: {event}")
 
 
 def gateway_serial_to_modbus(modbus_client: modbus.DesModbusTcpClient, serial_client: serial.DesSerialClient):
-    new_events = serial_client.receive_events()
-    if new_events:
-        show(f"(Serial) Received events: {new_events}")
-    for event in new_events:
-        modbus_client.send_event(event)
-        show(f"(Modbus) Sent event: {event}")
+    while True:
+        new_events = serial_client.receive_events()
+        if new_events:
+            show(f"(Serial) Received events: {new_events}")
+        for event in new_events:
+            modbus_client.send_event(event)
+            show(f"(Modbus) Sent event: {event}")
 
 
 def show(message):
