@@ -47,7 +47,7 @@ typedef int8_t ArcWeight_t;
 
 enum EventIdx : EventIdx_t
 {
-  {CORE_EVENTS_IDS},
+  {CORE_EVENTS_IDS}
 };
 
 struct Place
@@ -63,8 +63,10 @@ struct TransitionArc
 
 struct EventTransition
 {
+  const int8_t inhibitorArcsCount;
   const int8_t inputArcsCount;
   const int8_t deltaArcsCount;
+  const struct TransitionArc *inhibitorArcs;
   const struct TransitionArc *inputArcs;
   const struct TransitionArc *deltaArcs;
 };
@@ -135,6 +137,13 @@ const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
 
 bool EventTransitionIsEnabled(EventIdx_t eventIdx)
 {
+  for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcsCount; ++idx)
+  {
+    const PlaceIdx_t arcPlace = CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcs[idx].placeIdx;
+    const ArcWeight_t arcWeight = CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcs[idx].weight;
+    if (corePlaces[arcPlace].markings >= arcWeight)
+      return false;
+  }
   for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].inputArcsCount; ++idx)
   {
     const PlaceIdx_t arcPlace = CORE_EVENT_TRANSITIONS[eventIdx].inputArcs[idx].placeIdx;
@@ -211,5 +220,5 @@ void DesControllerSetup(void)
   xTaskCreate(SetCommand, CORE_SET_COMMAND_NAME, CORE_SET_COMMAND_SDEPTH, NULL, CORE_SET_COMMAND_PRIORITY, &SetCommandTaskHandle);
 
   /* Module initialization. */
-  {MODULE_INIT_FUNCTION_CALLS}
+{MODULE_INIT_FUNCTION_CALLS}
 }

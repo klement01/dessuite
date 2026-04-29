@@ -1,7 +1,15 @@
 import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass, field
 
+import dessuite.model.des as des
 from dessuite.generator_tools.util import key_is_truthy
+
+
+@dataclass(frozen=True)
+class CoreEvent:
+    event: des.Event
+    event_name: str
+    event_idx: int
 
 
 @dataclass

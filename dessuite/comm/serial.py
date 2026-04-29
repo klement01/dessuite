@@ -26,14 +26,14 @@ class DesSerialClient:
 
         # TODO: multi transmit semantics.
         incoming_events: collections.defaultdict[int, list[des.Event]] = collections.defaultdict(list)
-        for event, ns in hal_uart_module.transmit_actions.items():
+        for core_event, ns in hal_uart_module.transmit_actions.items():
             for n in ns:
-                incoming_events[n].append(event)
+                incoming_events[n].append(core_event.event)
         self.incoming_events = {k: set(v) for k, v in incoming_events.items()}
 
         outgoing_events: collections.defaultdict[des.Event, list[int]] = collections.defaultdict(list)
-        for n, event in hal_uart_module.recv_triggers.items():
-            outgoing_events[event].append(n)
+        for n, core_event in hal_uart_module.recv_triggers.items():
+            outgoing_events[core_event.event].append(n)
         self.outgoing_events = dict(outgoing_events)
 
         self.client = serial.Serial(port=port, baudrate=baud_rate, **kwargs)

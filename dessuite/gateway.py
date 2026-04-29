@@ -29,8 +29,12 @@ def gateway(model_file: Path, modbus_device_file: Path, spec_file: Path, port: s
         modbus_client.connect()
         show("(Modbus) Connected!")
 
-        threading.Thread(target=gateway_modbus_to_serial, args=(modbus_client, serial_client), daemon=True).start()
-        gateway_serial_to_modbus(modbus_client, serial_client)
+        t1 = threading.Thread(target=gateway_modbus_to_serial, args=(modbus_client, serial_client), daemon=True)
+        t2 = threading.Thread(target=gateway_serial_to_modbus, args=(modbus_client, serial_client), daemon=True)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
 
     except ConnectionAbortedError:
         show("Connection closed by server; restart controller.")
