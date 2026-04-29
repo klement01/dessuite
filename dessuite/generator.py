@@ -60,13 +60,13 @@ class GeneratorSpec:
 
 
 def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
-    INDENT = 2
-
     # Load data.
     net = petri.Petri.import_tina_file(model_file)
     spec = GeneratorSpec.initialize_from_net(net)
     spec.import_dessuite_file(spec_file)
 
+    # Write code.
+    INDENT = 2
     with c_files.DES_CONTROLLER_C_TEMPLATE.open(mode="r", encoding="utf-8") as f:
         template = f.read()
 

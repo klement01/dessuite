@@ -1,9 +1,10 @@
 import argparse
-import pathlib
 import sys
+from pathlib import Path
 
 import dessuite.control as control
 import dessuite.generator as generator
+import dessuite.gateway as gateway
 
 
 def __main__() -> int:
@@ -13,12 +14,12 @@ def __main__() -> int:
     # Controller tool.
     parser_controller = subparsers.add_parser(name="controller", help="act as a controller for FlexFact")
     parser_controller.add_argument(
-        "modbus_device_file", type=pathlib.Path, help="Modbus Device file (.dev) exported from FlexFact"
+        "modbus_device_file", type=Path, help="Modbus Device file (.dev) exported from FlexFact"
     )
     parser_controller.add_argument(
         "model_files",
         nargs="+",
-        type=pathlib.Path,
+        type=Path,
         help="list of controller files; accepted formats: .gen (FAUDES), .net (Tina Toolbox)",
     )
     parser_controller.set_defaults(func=parser_controller_handler)
@@ -28,11 +29,11 @@ def __main__() -> int:
         name="generator", help="generate a Petri Net implementation for a microcontroller"
     )
     parser_generator.add_argument(
-        "model_file", type=pathlib.Path, help="Tina Toolbox textual format file (.net) representing a Petri Net"
+        "model_file", type=Path, help="Tina Toolbox textual format file (.net) representing a Petri Net"
     )
-    parser_generator.add_argument("spec_file", type=pathlib.Path, help="dessuite specification file (.des.xml)")
-    parser_generator.add_argument("out_c", type=pathlib.Path, help="generated C source file (.c) output")
-    parser_generator.add_argument("out_h", type=pathlib.Path, help="generated C header file (.h) output")
+    parser_generator.add_argument("spec_file", type=Path, help="dessuite specification file (.des.xml)")
+    parser_generator.add_argument("out_c", type=Path, help="generated C source file (.c) output")
+    parser_generator.add_argument("out_h", type=Path, help="generated C header file (.h) output")
     parser_generator.set_defaults(func=parser_generator_handler)
 
     # Gateway tool.
@@ -40,10 +41,14 @@ def __main__() -> int:
         name="gateway", help="act as gateway between FlexFact and a controller generated with generator"
     )
     parser_gateway.add_argument(
-        "modbus_device_file", type=pathlib.Path, help="Modbus Device file (.dev) exported from FlexFact"
+        "model_file", type=Path, help="Tina Toolbox textual format file (.net) representing a Petri Net"
     )
-    parser_gateway.add_argument("spec_file", type=pathlib.Path, help="dessuite specification file (.des.xml)")
-    parser_gateway.add_argument("com", help="COM port")
+    parser_gateway.add_argument(
+        "modbus_device_file", type=Path, help="Modbus Device file (.dev) exported from FlexFact"
+    )
+    parser_gateway.add_argument("spec_file", type=Path, help="dessuite specification file (.des.xml)")
+    parser_gateway.add_argument("port", help="port")
+    parser_gateway.add_argument("--baud", default=115200, type=int, help="baud rate")
     parser_gateway.set_defaults(func=parser_gateway_handler)
 
     args = parser.parse_args()
@@ -51,26 +56,28 @@ def __main__() -> int:
 
 
 def parser_controller_handler(args: argparse.Namespace) -> int:
-    modbus_device_file: pathlib.Path = args.modbus_device_file
-    model_files: list[pathlib.Path] = args.model_files
+    modbus_device_file: Path = args.modbus_device_file
+    model_files: list[Path] = args.model_files
     control.control_loop(modbus_device_file, model_files)
     return 0
 
 
 def parser_generator_handler(args: argparse.Namespace) -> int:
-    model_file: pathlib.Path = args.model_file
-    spec_file: pathlib.Path = args.spec_file
-    out_c: pathlib.Path = args.out_c
-    out_h: pathlib.Path = args.out_h
+    model_file: Path = args.model_file
+    spec_file: Path = args.spec_file
+    out_c: Path = args.out_c
+    out_h: Path = args.out_h
     generator.generate(model_file, spec_file, out_c, out_h)
     return 0
 
 
 def parser_gateway_handler(args: argparse.Namespace) -> int:
-    modbus_device_file: pathlib.Path = args.modbus_device_file
-    spec_file: pathlib.Path = args.spec_file
-    com: str = args.com
-    # TODO: call gateway func.
+    model_file: Path = args.model_file
+    modbus_device_file: Path = args.modbus_device_file
+    spec_file: Path = args.spec_file
+    port: str = args.port
+    baud: int = args.baud
+    gateway.gateway(model_file, modbus_device_file, spec_file, port, baud)
     return 0
 
 
