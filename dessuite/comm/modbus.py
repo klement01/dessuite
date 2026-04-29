@@ -182,11 +182,11 @@ class DesModbusTcpClient:
     triggers_positive_edge: dict[Address, list[des.Event]]
     triggers_negative_edge: dict[Address, list[des.Event]]
 
-    def __init__(self, modbus_device: ModbusDevice, *args, slave_address: SlaveAddress | None = None, **kwargs):
+    def __init__(self, modbus_device: ModbusDevice, slave_address: SlaveAddress | None = None, **kwargs):
         # Create the underlying client.
         if slave_address is None:
             slave_address = modbus_device.slave_address
-        self.client = pymodbus.client.ModbusTcpClient(host=slave_address.host, *args, port=slave_address.port, **kwargs)
+        self.client = pymodbus.client.ModbusTcpClient(host=slave_address.host, port=slave_address.port, **kwargs)
 
         self.remote_image = modbus_device.remote_image
 

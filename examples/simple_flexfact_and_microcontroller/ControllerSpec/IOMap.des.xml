@@ -1,0 +1,93 @@
+<Dessuite>
+	<Core>
+		<!-- Core settings -->
+		<EventQueueSize>32</EventQueueSize>
+	</Core>
+	<Modules>
+		<!-- Module settings -->
+		<HalGpio>
+			<PinSuffix>_Pin</PinSuffix>
+			<PortSuffix>_GPIO_Port</PortSuffix>
+		</HalGpio>
+		<HalUart>
+			<AutoEnumerate/>
+			<Handle>huart1</Handle>
+		</HalUart>
+	</Modules>
+	<Events>
+		<!-- External event -->
+		<Event>
+			<Name>op_s2rel</Name>
+			<Triggers>
+				<HalGpio>
+					<Interrupt>BUTTON_RED</Interrupt>
+				</HalGpio>
+				<HalUart>
+					<Receive/>
+				</HalUart>
+			</Triggers>
+		</Event>
+		<!-- Command -->
+		<Event>
+			<Name>op_l1off</Name>
+			<Controllable/>
+			<Actions>
+				<HalGpio>
+					<Set>LED_GREEN</Set>
+				</HalGpio>
+				<HalUart>
+					<Transmit/>
+				</HalUart>
+			</Actions>
+		</Event>
+		<Event>
+			<Name>op_l2on</Name>
+			<Controllable/>
+			<Actions>
+				<HalGpio>
+					<Reset>LED_RED</Reset>
+				</HalGpio>
+				<HalUart>
+					<Transmit/>
+				</HalUart>
+			</Actions>
+		</Event>
+		<!-- External event -->
+		<Event>
+			<Name>op_s1rel</Name>
+			<Triggers>
+				<HalGpio>
+					<Interrupt>BUTTON_GREEN</Interrupt>
+				</HalGpio>
+				<HalUart>
+					<Receive/>
+				</HalUart>
+			</Triggers>
+		</Event>
+		<!-- Command -->
+		<Event>
+			<Name>op_l2off</Name>
+			<Controllable/>
+			<Actions>
+				<HalGpio>
+					<Set>LED_RED</Set>
+				</HalGpio>
+				<HalUart>
+					<Transmit/>
+				</HalUart>
+			</Actions>
+		</Event>
+		<Event>
+			<Name>op_l1on</Name>
+			<Controllable/>
+			<Actions>
+				<HalGpio>
+					<Reset>LED_GREEN</Reset>
+				</HalGpio>
+				<HalUart>
+					<Transmit/>
+				</HalUart>
+			</Actions>
+		</Event>
+	</Events>
+</Dessuite>

@@ -92,6 +92,8 @@ class Petri(des.Controller):
 
     def get_event_is_enabled(self, event: des.Event) -> bool:
         """Return True if event is enabled, False otherwise."""
+        if event not in self.transitions:
+            return False
         transition = self.transitions[event]
         return (
             self.current_state >= transition.input_weights
