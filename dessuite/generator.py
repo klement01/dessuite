@@ -1,14 +1,12 @@
-import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass, field
 from pathlib import Path
+from xml.etree import ElementTree
 
 from csnake import CodeWriter, Function, Variable
 
-import dessuite.generator_tools.core as core
-import dessuite.generator_tools.modules as modules
 import dessuite.generator_tools.c as c_files
-import dessuite.model.des as des
-import dessuite.model.petri as petri
+from dessuite.generator_tools import core, modules
+from dessuite.model import des, petri
 
 
 @dataclass
@@ -76,7 +74,7 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
 
     # Events.
     event_names = (f"\n{' ' * INDENT}").join(
-        f"{core_event.event_name}, // {str(core_event.event.id)}" for core_event in spec.ordered_events
+        f"{core_event.event_name}, // {core_event.event.id!s}" for core_event in spec.ordered_events
     )
     event_transitions_cw = CodeWriter(indent=INDENT)
     event_transition_vector_entries = []

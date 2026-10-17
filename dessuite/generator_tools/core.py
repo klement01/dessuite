@@ -1,8 +1,8 @@
-import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass, field
+from xml.etree import ElementTree
 
-import dessuite.model.des as des
 from dessuite.generator_tools.util import key_is_truthy
+from dessuite.model import des
 
 
 @dataclass(frozen=True)

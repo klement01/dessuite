@@ -2,10 +2,9 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-import dessuite.comm.serial as serial
-import dessuite.comm.modbus as modbus
-import dessuite.model.petri as petri
-import dessuite.generator as generator
+from dessuite import generator
+from dessuite.comm import modbus, serial
+from dessuite.model import petri
 
 
 def gateway(model_file: Path, modbus_device_file: Path, spec_file: Path, port: str, baud_rate: int):

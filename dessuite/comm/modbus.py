@@ -3,13 +3,13 @@
 import collections
 import enum
 import pathlib
-import xml.etree.ElementTree as ElementTree
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Iterator
+from xml.etree import ElementTree
 
 import pymodbus.client
 
-import dessuite.model.des as des
+from dessuite.model import des
 
 type Address = int
 
@@ -109,7 +109,7 @@ class ModbusDevice:
         return (event for event in self.event_configuration if event.iotype == ModbusIOType.INPUT)
 
     def controllable_events(self) -> set[des.Event]:
-        return set((event.des_event for event in self.output_modbus_events()))
+        return {(event.des_event for event in self.output_modbus_events())}
 
     @staticmethod
     def import_device_file(path: pathlib.Path | str) -> ModbusDevice:

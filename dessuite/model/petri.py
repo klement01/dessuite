@@ -3,16 +3,15 @@ with the concept of controllable events for use in Discrete Event Systems (DES).
 
 import pathlib
 from collections import Counter
-from collections.abc import Hashable
+from collections.abc import Callable, Hashable
 from dataclasses import dataclass, field
 from itertools import chain
-from typing import Any, Callable, Final
+from typing import Any, Final
 
 import more_itertools
 
-import dessuite.model.des as des
-import dessuite.model.detail.net_file_parser as net_file_parser
-
+from dessuite.model import des
+from dessuite.model.detail import net_file_parser
 
 """Functions for extracting an event name from a transition's name and label."""
 
@@ -73,7 +72,7 @@ class Petri(des.Controller):
     # Virtual method implementations.
 
     def update(self, event: des.Event) -> bool:
-        """Update current state according to event. Return True if state changed, False otherwised."""
+        """Update current state according to event. Return True if state changed, False otherwise."""
         if not self.get_event_is_enabled(event):
             return False
         self.current_state += self.transitions[event].output_weights
@@ -86,7 +85,7 @@ class Petri(des.Controller):
 
     def get_disabled_controllable_events(self) -> set[des.Event]:
         """Return set of controllable events disabled in the current state."""
-        return set(event for event in self.get_controllable_events() if not self.get_event_is_enabled(event))
+        return {event for event in self.get_controllable_events() if not self.get_event_is_enabled(event)}
 
     # Helper methods.
 
@@ -143,7 +142,7 @@ class Petri(des.Controller):
                     initial_state_partial[Place(pldesc.place)] = pldesc.markings
 
         events = set(transitions.keys())
-        places = set(
+        places = {
             place
             for place in chain(
                 initial_state_partial.keys(),
@@ -152,7 +151,7 @@ class Petri(des.Controller):
                 chain.from_iterable(transition.read_weights.keys() for transition in transitions.values()),
                 chain.from_iterable(transition.inhibitor_weights.keys() for transition in transitions.values()),
             )
-        )
+        }
         initial_state = Counter({place: initial_state_partial.get(place, 0) for place in places})
 
         return Petri(

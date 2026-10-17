@@ -4,12 +4,12 @@ for use in Discrete Event Systems (DES)."""
 import collections
 import itertools
 import pathlib
-import xml.etree.ElementTree as ElementTree
 from collections.abc import Hashable
 from dataclasses import dataclass, field
 from typing import Final
+from xml.etree import ElementTree
 
-import dessuite.model.des as des
+from dessuite.model import des
 
 
 @dataclass(frozen=True)
@@ -39,7 +39,7 @@ class DFA(des.Controller):
     # Virtual method implementations.
 
     def update(self, event: des.Event) -> bool:
-        """Update current state according to event. Return True if state changed, False otherwised."""
+        """Update current state according to event. Return True if state changed, False otherwise."""
         if event not in self.transitions[self.current_state]:
             return False
         self.current_state = self.transitions[self.current_state][event]
@@ -68,8 +68,8 @@ class DFA(des.Controller):
         marked_states_raw = tree.find("MarkedStates").text.strip()  # pyright: ignore[reportOptionalMemberAccess]
 
         # Parse strings into appropriate formats.
-        states = set(State(s) for s in states_raw.split())
-        events = set(des.Event(e) for e in alphabet_raw.split() if e != "+C+")
+        states = {State(s) for s in states_raw.split()}
+        events = {des.Event(e) for e in alphabet_raw.split() if e != "+C+"}
 
         transitions = collections.defaultdict(dict)
         for s0, e, s1 in (t.split() for t in transitions_raw.split("\n")):
@@ -77,8 +77,8 @@ class DFA(des.Controller):
         transitions = dict(transitions)
 
         initial_state = State(initial_state_raw)
-        marked_states = set(State(s) for s in marked_states_raw.split())
-        controllable_events = set(des.Event(e) for e, n in itertools.pairwise(alphabet_raw.split()) if n == "+C+")
+        marked_states = {State(s) for s in marked_states_raw.split()}
+        controllable_events = {des.Event(e) for e, n in itertools.pairwise(alphabet_raw.split()) if n == "+C+"}
 
         # Assemble DFA.
         return DFA(

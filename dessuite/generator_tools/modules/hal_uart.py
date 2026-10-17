@@ -1,11 +1,11 @@
-import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass, field
+from xml.etree import ElementTree
 
 from csnake import CodeWriter, Function
 
-import dessuite.generator_tools.core as core
+from dessuite.generator_tools import core
+from dessuite.generator_tools.modules import common
 from dessuite.generator_tools.util import key_is_truthy
-import dessuite.generator_tools.modules.common as common
 
 
 @dataclass

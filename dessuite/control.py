@@ -2,13 +2,11 @@ import functools
 import itertools
 import pathlib
 import pprint
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Iterable
 
-import dessuite.comm.modbus as modbus
-import dessuite.model.des as des
-import dessuite.model.dfa as dfa
-import dessuite.model.petri as petri
+from dessuite.comm import modbus
+from dessuite.model import des, dfa, petri
 
 
 def control_loop(modbus_device_file: pathlib.Path, model_files: Iterable[pathlib.Path]):

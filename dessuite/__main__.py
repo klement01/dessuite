@@ -2,9 +2,7 @@ import argparse
 import sys
 from pathlib import Path
 
-import dessuite.control as control
-import dessuite.generator as generator
-import dessuite.gateway as gateway
+from dessuite import control, gateway, generator
 
 
 def __main__() -> int:
