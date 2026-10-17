@@ -1,10 +1,11 @@
 """Implementation of a Petri Net extended with the concept of inhibitor and read arcs and
 with the concept of controllable events for use in Discrete Event Systems (DES)."""
 
+import datetime
 import pathlib
 from collections import Counter
 from collections.abc import Callable, Hashable
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from itertools import chain
 from typing import Any, Final
 
@@ -39,6 +40,12 @@ class Place:
     id: Hashable
 
 
+@dataclass(frozen=True)
+class Interval:
+    lower_limit: datetime.timedelta
+    upper_limit: datetime.timedelta | None
+
+
 type State = Counter[Place]
 type Weights = Counter[Place]
 
@@ -49,6 +56,7 @@ class Transition:
     output_weights: Weights = field(kw_only=True)
     read_weights: Weights = field(kw_only=True)
     inhibitor_weights: Weights = field(kw_only=True)
+    interval: Interval = field(kw_only=True)
 
 
 @dataclass
@@ -62,35 +70,94 @@ class Petri(des.Controller):
     initial_state: Final[State] = field(kw_only=True)
     current_state: State = field(init=False)
 
+    # Time Petri Net extension.
+    start_time: InitVar[datetime.datetime] = field(kw_only=True, default_factory=datetime.datetime.now)
+    transition_structurally_enabled_timestamps: dict[Transition, datetime.datetime] = field(
+        init=False, default_factory=dict
+    )
+
     # Controller extension.
     controllable_events: Final[set[des.Event]] = field(kw_only=True)
 
-    def __post_init__(self):
+    def __post_init__(self, start_time: datetime.datetime):
         # TODO: validate transitions, initial_state and controllable_events.
         self.current_state = self.initial_state.copy()
+        self.update_structurally_enabled_transitions(start_time)
 
-    # Virtual method implementations.
+    # Virtual method implementations and concrete method overrides.
 
-    def update(self, event: des.Event) -> bool:
+    def update(self, event: des.Event, timestamp: datetime.datetime | None = None) -> bool:
         """Update current state according to event. Return True if state changed, False otherwise."""
-        if not self.get_event_is_enabled(event):
+        if timestamp is None:
+            timestamp = datetime.datetime.now()
+
+        if not self.get_event_is_enabled(event, timestamp):
             return False
+
         self.current_state += self.transitions[event].output_weights
         self.current_state -= self.transitions[event].input_weights
+
+        self.update_structurally_enabled_transitions(timestamp)
+
         return True
 
     def get_controllable_events(self) -> set[des.Event]:
         """Return set of controllable events."""
         return self.controllable_events
 
-    def get_disabled_controllable_events(self) -> set[des.Event]:
+    def get_disabled_controllable_events(self, timestamp: datetime.datetime | None = None) -> set[des.Event]:
         """Return set of controllable events disabled in the current state."""
-        return {event for event in self.get_controllable_events() if not self.get_event_is_enabled(event)}
+        if timestamp is None:
+            timestamp = datetime.datetime.now()
+
+        return {event for event in self.get_controllable_events() if not self.get_event_is_enabled(event, timestamp)}
+
+    def get_next_enabled_controllable_event_timestamp(
+        self, timestamp: datetime.datetime | None
+    ) -> datetime.datetime | None:
+        """Return timestamp when a controllable event that is structurally enabled but disabled due to timing
+        becomes enabled, or None if there are no events in this state."""
+        if timestamp is None:
+            timestamp = datetime.datetime.now()
+
+        return min(
+            (
+                enabled_timestamp
+                for event in self.controllable_events
+                if (transition := self.transitions[event]) in self.transition_structurally_enabled_timestamps
+                if timestamp
+                < (
+                    enabled_timestamp := transition.interval.lower_limit
+                    + self.transition_structurally_enabled_timestamps[transition]
+                )
+            ),
+            default=None,
+        )
 
     # Helper methods.
 
-    def get_event_is_enabled(self, event: des.Event) -> bool:
+    def update_structurally_enabled_transitions(self, timestamp: datetime.datetime):
+        """Updates dictionary of structurally enabled transitions and the moments when they *first* became enabled."""
+        self.transition_structurally_enabled_timestamps = {
+            self.transitions[event]: self.transition_structurally_enabled_timestamps.get(self.transitions[event], None)
+            or timestamp
+            for event in self.events
+            if self.get_event_is_structurally_enabled(event)
+        }
+
+    def get_event_is_enabled(self, event: des.Event, timestamp: datetime.datetime) -> bool:
         """Return True if event is enabled, False otherwise."""
+        if not self.get_event_is_structurally_enabled(event):
+            return False
+        transition = self.transitions[event]
+        transition_enabled_timestamp = self.transition_structurally_enabled_timestamps[transition]
+        return transition_enabled_timestamp + transition.interval.lower_limit < timestamp and (
+            transition.interval.upper_limit is None
+            or timestamp < transition_enabled_timestamp + transition.interval.upper_limit
+        )
+
+    def get_event_is_structurally_enabled(self, event: des.Event) -> bool:
+        """Return True if event is enabled (based on markings, ignoring timing), False otherwise."""
         if event not in self.transitions:
             return False
         transition = self.transitions[event]
@@ -106,6 +173,7 @@ class Petri(des.Controller):
         *,
         max_controllable_events: set[des.Event] | None = None,
         event_name_extractor: Extractor = LabelIfPresentElseName,
+        interval_scale: datetime.timedelta = datetime.timedelta(milliseconds=1),
     ) -> Petri:
         """Construct an instance of a Petri Net from a Tina Toolbox textual format file (.net).
         Optionally, allows specifying a set of events as controllable."""
@@ -116,7 +184,7 @@ class Petri(des.Controller):
         with pathlib.Path(path).open(mode="r", encoding="cp1252") as net:
             for line in net:
                 if trdesc := net_file_parser.try_parse_trdesc(line):
-                    # TODO: parse and use intervals.
+                    # TODO: properly handle multiple transitions assigned to the same event.
                     # TODO: parse and use stopwatch arcs.
                     event_name = event_name_extractor(trdesc.transition, trdesc.label)
 
@@ -131,11 +199,18 @@ class Petri(des.Controller):
 
                     output_weights = Counter({Place(t.place): t.weight for t in trdesc.outputs})
 
+                    # TODO: don't ignore "inclusive" fields of interval.
+                    interval = Interval(
+                        trdesc.interval.lower_limit.value * interval_scale,
+                        trdesc.interval.upper_limit.value * interval_scale if trdesc.interval.upper_limit else None,
+                    )
+
                     transitions[des.Event(event_name)] = Transition(
                         input_weights=input_weights,
                         output_weights=output_weights,
                         read_weights=read_weights,
                         inhibitor_weights=inhibitor_weights,
+                        interval=interval,
                     )
 
                 elif pldesc := net_file_parser.try_parse_pldesc(line):

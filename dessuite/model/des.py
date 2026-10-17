@@ -1,6 +1,7 @@
 """Common components of a Discrete Event Systems (DES)."""
 
 import abc
+import datetime
 from collections.abc import Hashable
 from dataclasses import dataclass
 
@@ -30,3 +31,10 @@ class Controller(abc.ABC):
     def get_disabled_controllable_events(self) -> set[Event]:
         """Return set of controllable events disabled in the current state."""
         ...
+
+    def get_next_enabled_controllable_event_timestamp(
+        self, timestamp: datetime.datetime | None
+    ) -> datetime.datetime | None:
+        """Return timestamp when a controllable event that is structurally enabled but disabled due to timing
+        becomes enabled, or None if there are no events in this state."""
+        return None
