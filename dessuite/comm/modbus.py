@@ -109,7 +109,7 @@ class ModbusDevice:
         return (event for event in self.event_configuration if event.iotype == ModbusIOType.INPUT)
 
     def controllable_events(self) -> set[des.Event]:
-        return {(event.des_event for event in self.output_modbus_events())}
+        return {event.des_event for event in self.output_modbus_events()}
 
     @staticmethod
     def import_device_file(path: pathlib.Path | str) -> ModbusDevice:
