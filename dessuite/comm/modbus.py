@@ -3,6 +3,7 @@
 import collections
 import enum
 import pathlib
+import threading
 from collections.abc import Iterator
 from dataclasses import dataclass
 from xml.etree import ElementTree
@@ -174,6 +175,7 @@ class DesModbusTcpClient:
 
     type State = list[bool]
     state: State | None = None
+    state_lock: threading.Lock
 
     remote_image: ModbusRemoteImage
 
@@ -214,6 +216,7 @@ class DesModbusTcpClient:
     def connect(self):
         if not self.client.connect():
             raise pymodbus.ModbusException("failed to connect")
+        self.state_lock = threading.Lock()
         self.state = self.read_state()
 
     def disconnect(self):
@@ -230,23 +233,28 @@ class DesModbusTcpClient:
         assert self.state is not None, "Modbus client not started"
 
         base_address = self.remote_image.outputs.mbaddr
-        for address in self.actions_clear.get(event, []):
-            self.state[address - base_address] = False
-        for address in self.actions_set.get(event, []):
-            self.state[address - base_address] = True
-        self.client.write_coils(self.remote_image.outputs.mbaddr, self.state)
+        with self.state_lock:
+            for address in self.actions_clear.get(event, []):
+                self.state[address - base_address] = False
+            for address in self.actions_set.get(event, []):
+                self.state[address - base_address] = True
+            self.client.write_coils(self.remote_image.outputs.mbaddr, self.state)
 
     def receive_events(self) -> set[des.Event]:
         """Read coils and translate to events."""
         assert self.state is not None, "Modbus client not started"
 
         new_state = self.read_state()
+        with self.state_lock:
+            old_state = self.state
+            self.state = new_state
+
         events: set[des.Event] = set()
-        for address_offset, (old, new) in enumerate(zip(self.state, new_state)):
+        for address_offset, (old, new) in enumerate(zip(old_state, new_state)):
             address: Address = self.remote_image.inputs.mbaddr + address_offset
             if not old and new:
                 events.update(self.triggers_positive_edge.get(address, ()))
             elif old and not new:
                 events.update(self.triggers_negative_edge.get(address, ()))
-        self.state = new_state
+
         return events

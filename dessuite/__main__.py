@@ -22,6 +22,20 @@ def __main__() -> int:
     )
     parser_controller.set_defaults(func=parser_controller_handler)
 
+    # Time Controller tool.
+    parser_controller = subparsers.add_parser(
+        name="time_controller", help="act as a controller for FlexFact with Time Petri Net support"
+    )
+    parser_controller.add_argument(
+        "modbus_device_file", type=Path, help="Modbus Device file (.dev) exported from FlexFact"
+    )
+    parser_controller.add_argument(
+        "net_file",
+        type=Path,
+        help="single Tina Toolbox net file (.net)",
+    )
+    parser_controller.set_defaults(func=parser_time_controller_handler)
+
     # Generator tool.
     parser_generator = subparsers.add_parser(
         name="generator", help="generate a Petri Net implementation for a microcontroller"
@@ -57,6 +71,13 @@ def parser_controller_handler(args: argparse.Namespace) -> int:
     modbus_device_file: Path = args.modbus_device_file
     model_files: list[Path] = args.model_files
     control.control_loop(modbus_device_file, model_files)
+    return 0
+
+
+def parser_time_controller_handler(args: argparse.Namespace) -> int:
+    modbus_device_file: Path = args.modbus_device_file
+    net_file: Path = args.net_file
+    control.time_control_loop(modbus_device_file, net_file)
     return 0
 
 

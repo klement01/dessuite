@@ -72,7 +72,7 @@ class Petri(des.Controller):
 
     # Time Petri Net extension.
     start_time: InitVar[datetime.datetime | None] = field(kw_only=True, default=None)
-    event_structurally_enabled_timestamps: dict[des.Event, datetime.datetime] = field(
+    structurally_enabled_event_timestamps: dict[des.Event, datetime.datetime] = field(
         init=False, default_factory=dict, repr=False
     )
 
@@ -81,25 +81,27 @@ class Petri(des.Controller):
 
     def __post_init__(self, start_time: datetime.datetime | None):
         # TODO: validate transitions, initial_state and controllable_events.
+        self.start(datetime.datetime.now() if start_time is None else start_time)
+
+    def start(self, start_time: datetime.datetime):
         self.current_state = self.initial_state.copy()
-        if start_time is None:
-            start_time = datetime.datetime.now()
+        self.structurally_enabled_event_timestamps.clear()
         self.update_structurally_enabled_transitions(start_time)
 
     # Virtual method implementations and concrete method overrides.
 
-    def update(self, event: des.Event, timestamp: datetime.datetime | None = None) -> bool:
+    def update(self, event: des.Event, *, timestamp: datetime.datetime | None = None) -> bool:
         """Update current state according to event. Return True if state changed, False otherwise."""
         if timestamp is None:
             timestamp = datetime.datetime.now()
 
-        if not self.get_event_is_enabled(event, timestamp):
+        if not self.get_event_is_enabled(event, timestamp=timestamp):
             return False
 
         self.current_state += self.transitions[event].output_weights
         self.current_state -= self.transitions[event].input_weights
 
-        self.update_structurally_enabled_transitions(timestamp)
+        self.update_structurally_enabled_transitions(timestamp=timestamp)
 
         return True
 
@@ -107,32 +109,40 @@ class Petri(des.Controller):
         """Return set of controllable events."""
         return self.controllable_events
 
-    def get_disabled_controllable_events(self, timestamp: datetime.datetime | None = None) -> set[des.Event]:
+    def get_disabled_controllable_events(self, *, timestamp: datetime.datetime | None = None) -> set[des.Event]:
         """Return set of controllable events disabled in the current state."""
         if timestamp is None:
             timestamp = datetime.datetime.now()
 
-        return {event for event in self.get_controllable_events() if not self.get_event_is_enabled(event, timestamp)}
+        return {
+            event
+            for event in self.get_controllable_events()
+            if not self.get_event_is_enabled(event, timestamp=timestamp)
+        }
 
-    def get_next_enabled_controllable_event_timestamp(
+    # Time Petri Net extension.
+
+    def get_next_enabled_controllable_event(
         self, timestamp: datetime.datetime | None
-    ) -> datetime.datetime | None:
-        """Return timestamp when a controllable event that is structurally enabled but disabled due to timing
-        becomes enabled, or None if there are no events in this state."""
+    ) -> tuple[des.Event, datetime.datetime] | None:
+        """Return (Event, timestamp) pair for next controllable event that will become available."""
         if timestamp is None:
             timestamp = datetime.datetime.now()
 
+        structurally_enabled_controllable_transitions = [
+            (event, self.transitions[event])
+            for event in self.controllable_events
+            if event in self.structurally_enabled_event_timestamps
+        ]
+
         return min(
             (
-                enabled_timestamp
-                for event in self.controllable_events
-                if (transition := self.transitions[event]) in self.event_structurally_enabled_timestamps
-                if timestamp
-                < (
-                    enabled_timestamp := transition.interval.lower_limit
-                    + self.event_structurally_enabled_timestamps[transition]
-                )
+                (event, transition.interval.lower_limit + self.structurally_enabled_event_timestamps[event])
+                for event, transition in structurally_enabled_controllable_transitions
+                if transition.interval.upper_limit is None
+                or transition.interval.upper_limit + self.structurally_enabled_event_timestamps[event] <= timestamp
             ),
+            key=lambda t: t[-1],
             default=None,
         )
 
@@ -140,21 +150,21 @@ class Petri(des.Controller):
 
     def update_structurally_enabled_transitions(self, timestamp: datetime.datetime):
         """Updates dictionary of structurally enabled transitions and the moments when they *first* became enabled."""
-        self.event_structurally_enabled_timestamps = {
-            event: self.event_structurally_enabled_timestamps.get(event, None) or timestamp
+        self.structurally_enabled_event_timestamps = {
+            event: self.structurally_enabled_event_timestamps.get(event, None) or timestamp
             for event in self.events
             if self.get_event_is_structurally_enabled(event)
         }
 
-    def get_event_is_enabled(self, event: des.Event, timestamp: datetime.datetime) -> bool:
+    def get_event_is_enabled(self, event: des.Event, *, timestamp: datetime.datetime) -> bool:
         """Return True if event is enabled, False otherwise."""
         if not self.get_event_is_structurally_enabled(event):
             return False
         transition = self.transitions[event]
-        transition_enabled_timestamp = self.event_structurally_enabled_timestamps[event]
-        return transition_enabled_timestamp + transition.interval.lower_limit < timestamp and (
+        transition_enabled_timestamp = self.structurally_enabled_event_timestamps[event]
+        return transition_enabled_timestamp + transition.interval.lower_limit <= timestamp and (
             transition.interval.upper_limit is None
-            or timestamp < transition_enabled_timestamp + transition.interval.upper_limit
+            or timestamp <= transition_enabled_timestamp + transition.interval.upper_limit
         )
 
     def get_event_is_structurally_enabled(self, event: des.Event) -> bool:
