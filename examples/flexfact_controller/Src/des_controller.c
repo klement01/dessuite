@@ -35,9 +35,9 @@
 #define CORE_SET_COMMAND_PRIORITY (10)
 
 /* Petri Net definition. */
-#define CORE_EVENT_COUNT (11)
-#define CORE_COMMAND_COUNT (4)
-#define CORE_PLACE_COUNT (10)
+#define CORE_EVENT_COUNT (13)
+#define CORE_COMMAND_COUNT (6)
+#define CORE_PLACE_COUNT (11)
 
 typedef uint8_t EventIdx_t;
 typedef uint8_t PlaceIdx_t;
@@ -51,13 +51,15 @@ enum EventIdx : EventIdx_t
   EVENT_1, // cb1_boff
   EVENT_2, // cb1_wpar
   EVENT_3, // cb1_wplv
-  EVENT_4, // sf1_fdhome
-  EVENT_5, // sf1_fdoff
-  EVENT_6, // sf1_fdon
-  EVENT_7, // sf1_wpar
-  EVENT_8, // sf1_wplv
-  EVENT_9, // xs1_wpar
-  EVENT_10, // xs1_wplv
+  EVENT_4, // op_l1off
+  EVENT_5, // op_l1on
+  EVENT_6, // sf1_fdhome
+  EVENT_7, // sf1_fdoff
+  EVENT_8, // sf1_fdon
+  EVENT_9, // sf1_wpar
+  EVENT_10, // sf1_wplv
+  EVENT_11, // xs1_wpar
+  EVENT_12, // xs1_wplv
 };
 
 struct Place
@@ -82,11 +84,11 @@ struct EventTransition
 };
 
 const struct TransitionArc EVENT_0_INHIBITOR_ARCS[1] = {
-  {9, 1}
+  {10, 1}
 };
 const struct TransitionArc EVENT_0_INPUT_ARCS[2] = {
   {0, 1},
-  {7, 1}
+  {8, 1}
 };
 const struct TransitionArc EVENT_0_DELTA_ARCS[2] = {
   {0, -1},
@@ -95,7 +97,7 @@ const struct TransitionArc EVENT_0_DELTA_ARCS[2] = {
 const struct TransitionArc EVENT_1_INHIBITOR_ARCS[3] = {
   {2, 1},
   {3, 1},
-  {7, 1}
+  {8, 1}
 };
 const struct TransitionArc EVENT_1_INPUT_ARCS[1] = {
   {1, 1}
@@ -106,11 +108,11 @@ const struct TransitionArc EVENT_1_DELTA_ARCS[2] = {
 };
 const struct TransitionArc EVENT_2_INHIBITOR_ARCS[0] = {};
 const struct TransitionArc EVENT_2_INPUT_ARCS[1] = {
-  {7, 1}
+  {8, 1}
 };
 const struct TransitionArc EVENT_2_DELTA_ARCS[2] = {
   {2, 1},
-  {7, -1}
+  {8, -1}
 };
 const struct TransitionArc EVENT_3_INHIBITOR_ARCS[0] = {};
 const struct TransitionArc EVENT_3_INPUT_ARCS[1] = {
@@ -121,60 +123,78 @@ const struct TransitionArc EVENT_3_DELTA_ARCS[2] = {
   {3, 1}
 };
 const struct TransitionArc EVENT_4_INHIBITOR_ARCS[1] = {
-  {8, 1}
+  {10, 1}
 };
-const struct TransitionArc EVENT_4_INPUT_ARCS[0] = {};
+const struct TransitionArc EVENT_4_INPUT_ARCS[1] = {
+  {4, 1}
+};
 const struct TransitionArc EVENT_4_DELTA_ARCS[1] = {
-  {8, 1}
+  {4, -1}
 };
-const struct TransitionArc EVENT_5_INHIBITOR_ARCS[0] = {};
-const struct TransitionArc EVENT_5_INPUT_ARCS[2] = {
-  {5, 1},
-  {8, 1}
+const struct TransitionArc EVENT_5_INHIBITOR_ARCS[1] = {
+  {4, 1}
 };
-const struct TransitionArc EVENT_5_DELTA_ARCS[3] = {
-  {4, 1},
-  {5, -1},
-  {8, -1}
+const struct TransitionArc EVENT_5_INPUT_ARCS[1] = {
+  {10, 1}
+};
+const struct TransitionArc EVENT_5_DELTA_ARCS[1] = {
+  {4, 1}
 };
 const struct TransitionArc EVENT_6_INHIBITOR_ARCS[1] = {
   {9, 1}
 };
-const struct TransitionArc EVENT_6_INPUT_ARCS[2] = {
-  {4, 1},
-  {6, 1}
-};
-const struct TransitionArc EVENT_6_DELTA_ARCS[2] = {
-  {4, -1},
-  {5, 1}
+const struct TransitionArc EVENT_6_INPUT_ARCS[0] = {};
+const struct TransitionArc EVENT_6_DELTA_ARCS[1] = {
+  {9, 1}
 };
 const struct TransitionArc EVENT_7_INHIBITOR_ARCS[0] = {};
-const struct TransitionArc EVENT_7_INPUT_ARCS[0] = {};
-const struct TransitionArc EVENT_7_DELTA_ARCS[1] = {
-  {6, 1}
+const struct TransitionArc EVENT_7_INPUT_ARCS[2] = {
+  {6, 1},
+  {9, 1}
 };
-const struct TransitionArc EVENT_8_INHIBITOR_ARCS[0] = {};
-const struct TransitionArc EVENT_8_INPUT_ARCS[1] = {
-  {6, 1}
-};
-const struct TransitionArc EVENT_8_DELTA_ARCS[2] = {
+const struct TransitionArc EVENT_7_DELTA_ARCS[3] = {
+  {5, 1},
   {6, -1},
+  {9, -1}
+};
+const struct TransitionArc EVENT_8_INHIBITOR_ARCS[1] = {
+  {10, 1}
+};
+const struct TransitionArc EVENT_8_INPUT_ARCS[2] = {
+  {5, 1},
   {7, 1}
 };
-const struct TransitionArc EVENT_9_INHIBITOR_ARCS[0] = {};
-const struct TransitionArc EVENT_9_INPUT_ARCS[1] = {
-  {3, 1}
+const struct TransitionArc EVENT_8_DELTA_ARCS[2] = {
+  {5, -1},
+  {6, 1}
 };
-const struct TransitionArc EVENT_9_DELTA_ARCS[2] = {
-  {3, -1},
-  {9, 1}
+const struct TransitionArc EVENT_9_INHIBITOR_ARCS[0] = {};
+const struct TransitionArc EVENT_9_INPUT_ARCS[0] = {};
+const struct TransitionArc EVENT_9_DELTA_ARCS[1] = {
+  {7, 1}
 };
 const struct TransitionArc EVENT_10_INHIBITOR_ARCS[0] = {};
 const struct TransitionArc EVENT_10_INPUT_ARCS[1] = {
-  {9, 1}
+  {7, 1}
 };
-const struct TransitionArc EVENT_10_DELTA_ARCS[1] = {
-  {9, -1}
+const struct TransitionArc EVENT_10_DELTA_ARCS[2] = {
+  {7, -1},
+  {8, 1}
+};
+const struct TransitionArc EVENT_11_INHIBITOR_ARCS[0] = {};
+const struct TransitionArc EVENT_11_INPUT_ARCS[1] = {
+  {3, 1}
+};
+const struct TransitionArc EVENT_11_DELTA_ARCS[2] = {
+  {3, -1},
+  {10, 1}
+};
+const struct TransitionArc EVENT_12_INHIBITOR_ARCS[0] = {};
+const struct TransitionArc EVENT_12_INPUT_ARCS[1] = {
+  {10, 1}
+};
+const struct TransitionArc EVENT_12_DELTA_ARCS[1] = {
+  {10, -1}
 };
 
 const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
@@ -183,20 +203,22 @@ const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
   {3, 1, 2, EVENT_1_INHIBITOR_ARCS, EVENT_1_INPUT_ARCS, EVENT_1_DELTA_ARCS},
   {0, 1, 2, EVENT_2_INHIBITOR_ARCS, EVENT_2_INPUT_ARCS, EVENT_2_DELTA_ARCS},
   {0, 1, 2, EVENT_3_INHIBITOR_ARCS, EVENT_3_INPUT_ARCS, EVENT_3_DELTA_ARCS},
-  {1, 0, 1, EVENT_4_INHIBITOR_ARCS, EVENT_4_INPUT_ARCS, EVENT_4_DELTA_ARCS},
-  {0, 2, 3, EVENT_5_INHIBITOR_ARCS, EVENT_5_INPUT_ARCS, EVENT_5_DELTA_ARCS},
-  {1, 2, 2, EVENT_6_INHIBITOR_ARCS, EVENT_6_INPUT_ARCS, EVENT_6_DELTA_ARCS},
-  {0, 0, 1, EVENT_7_INHIBITOR_ARCS, EVENT_7_INPUT_ARCS, EVENT_7_DELTA_ARCS},
-  {0, 1, 2, EVENT_8_INHIBITOR_ARCS, EVENT_8_INPUT_ARCS, EVENT_8_DELTA_ARCS},
-  {0, 1, 2, EVENT_9_INHIBITOR_ARCS, EVENT_9_INPUT_ARCS, EVENT_9_DELTA_ARCS},
-  {0, 1, 1, EVENT_10_INHIBITOR_ARCS, EVENT_10_INPUT_ARCS, EVENT_10_DELTA_ARCS},
+  {1, 1, 1, EVENT_4_INHIBITOR_ARCS, EVENT_4_INPUT_ARCS, EVENT_4_DELTA_ARCS},
+  {1, 1, 1, EVENT_5_INHIBITOR_ARCS, EVENT_5_INPUT_ARCS, EVENT_5_DELTA_ARCS},
+  {1, 0, 1, EVENT_6_INHIBITOR_ARCS, EVENT_6_INPUT_ARCS, EVENT_6_DELTA_ARCS},
+  {0, 2, 3, EVENT_7_INHIBITOR_ARCS, EVENT_7_INPUT_ARCS, EVENT_7_DELTA_ARCS},
+  {1, 2, 2, EVENT_8_INHIBITOR_ARCS, EVENT_8_INPUT_ARCS, EVENT_8_DELTA_ARCS},
+  {0, 0, 1, EVENT_9_INHIBITOR_ARCS, EVENT_9_INPUT_ARCS, EVENT_9_DELTA_ARCS},
+  {0, 1, 2, EVENT_10_INHIBITOR_ARCS, EVENT_10_INPUT_ARCS, EVENT_10_DELTA_ARCS},
+  {0, 1, 2, EVENT_11_INHIBITOR_ARCS, EVENT_11_INPUT_ARCS, EVENT_11_DELTA_ARCS},
+  {0, 1, 1, EVENT_12_INHIBITOR_ARCS, EVENT_12_INPUT_ARCS, EVENT_12_DELTA_ARCS},
 };
 
 
 /** Core variables. **/
 
 /* Current state. */
-struct Place corePlaces[CORE_PLACE_COUNT] = { {1}, {0}, {0}, {0}, {1}, {0}, {0}, {0}, {0}, {0} };
+struct Place corePlaces[CORE_PLACE_COUNT] = { {1}, {0}, {0}, {0}, {0}, {1}, {0}, {0}, {0}, {0}, {0} };
 
 /* Inter-task communication. */
 QueueHandle_t PendingEventsQueue;
@@ -232,15 +254,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   switch (huart1_recv_buffer)
   {
     case 0:
-      eventIdx = EVENT_4;
+      eventIdx = EVENT_6;
       xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);
       break;
     case 1:
-      eventIdx = EVENT_7;
+      eventIdx = EVENT_9;
       xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);
       break;
     case 2:
-      eventIdx = EVENT_8;
+      eventIdx = EVENT_10;
       xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);
       break;
     case 3:
@@ -252,11 +274,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
       xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);
       break;
     case 5:
-      eventIdx = EVENT_9;
+      eventIdx = EVENT_11;
       xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);
       break;
     case 6:
-      eventIdx = EVENT_10;
+      eventIdx = EVENT_12;
       xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);
       break;
   }
@@ -278,37 +300,51 @@ struct Command
   const void (*handler)(void);
 };
 
-void EVENT_6_COMMAND_HANDLER(void)
+void EVENT_8_COMMAND_HANDLER(void)
 {
-  HAL_GPIO_WritePin(LED_RED_1_GPIO_Port, LED_RED_1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_GREEN_1_GPIO_Port, LED_GREEN_1_Pin, GPIO_PIN_RESET);
   huart1_transmit_buffer = 7;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
 }
-void EVENT_5_COMMAND_HANDLER(void)
+void EVENT_7_COMMAND_HANDLER(void)
 {
-  HAL_GPIO_WritePin(LED_RED_1_GPIO_Port, LED_RED_1_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(LED_GREEN_1_GPIO_Port, LED_GREEN_1_Pin, GPIO_PIN_SET);
   huart1_transmit_buffer = 8;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
 }
 void EVENT_0_COMMAND_HANDLER(void)
 {
-  HAL_GPIO_WritePin(LED_RED_2_GPIO_Port, LED_RED_2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_GREEN_2_GPIO_Port, LED_GREEN_2_Pin, GPIO_PIN_RESET);
   huart1_transmit_buffer = 9;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
 }
 void EVENT_1_COMMAND_HANDLER(void)
 {
-  HAL_GPIO_WritePin(LED_RED_2_GPIO_Port, LED_RED_2_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(LED_GREEN_2_GPIO_Port, LED_GREEN_2_Pin, GPIO_PIN_SET);
   huart1_transmit_buffer = 10;
+  HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+}
+void EVENT_5_COMMAND_HANDLER(void)
+{
+  HAL_GPIO_WritePin(LED_RED_1_GPIO_Port, LED_RED_1_Pin, GPIO_PIN_RESET);
+  huart1_transmit_buffer = 11;
+  HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+}
+void EVENT_4_COMMAND_HANDLER(void)
+{
+  HAL_GPIO_WritePin(LED_RED_1_GPIO_Port, LED_RED_1_Pin, GPIO_PIN_SET);
+  huart1_transmit_buffer = 12;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
 }
 
 const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
 {
-  {6, EVENT_6_COMMAND_HANDLER},
-  {5, EVENT_5_COMMAND_HANDLER},
+  {8, EVENT_8_COMMAND_HANDLER},
+  {7, EVENT_7_COMMAND_HANDLER},
   {0, EVENT_0_COMMAND_HANDLER},
-  {1, EVENT_1_COMMAND_HANDLER}
+  {1, EVENT_1_COMMAND_HANDLER},
+  {5, EVENT_5_COMMAND_HANDLER},
+  {4, EVENT_4_COMMAND_HANDLER}
 };
 
 

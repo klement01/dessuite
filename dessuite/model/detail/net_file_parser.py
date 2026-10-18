@@ -143,7 +143,7 @@ trdesc: Final = (
     "tr"
     + transition
     + pp.Opt(pp.Suppress(":") + label)
-    + interval
+    + pp.Opt(interval)
     + pp.ZeroOrMore(tinput.set_results_name(Vocabulary.TINPUTS, list_all_matches=True))
     + pp.Suppress("->")
     + pp.ZeroOrMore(toutput.set_results_name(Vocabulary.TOUTPUTS, list_all_matches=True))
@@ -221,19 +221,21 @@ def try_parse_trdesc(desc: str) -> TransitionDescription | None:
     name = cast(str, parsed[Vocabulary.TRANSITION])
     label = cast(str | None, parsed.get(Vocabulary.LABEL))
 
-    interval_desc = cast(Any, parsed.get(Vocabulary.INTERVAL))
-    interval = Interval(
-        lower_limit=IntervalLimit(
-            inclusive="[" == interval_desc.get(Vocabulary.LOWER_BRACKET),
-            value=int(interval_desc.get(Vocabulary.LOWER_LIMIT)),
-        ),
-        upper_limit=None
-        if interval_desc.get(Vocabulary.UPPER_LIMIT) == "w"
-        else IntervalLimit(
-            inclusive="]" == interval_desc.get(Vocabulary.UPPER_BRACKET),
-            value=int(interval_desc.get(Vocabulary.UPPER_LIMIT)),
-        ),
-    )
+    if interval_desc := cast(Any, parsed.get(Vocabulary.INTERVAL)):
+        interval = Interval(
+            lower_limit=IntervalLimit(
+                inclusive="[" == interval_desc.get(Vocabulary.LOWER_BRACKET),
+                value=int(interval_desc.get(Vocabulary.LOWER_LIMIT)),
+            ),
+            upper_limit=None
+            if interval_desc.get(Vocabulary.UPPER_LIMIT) == "w"
+            else IntervalLimit(
+                inclusive="]" == interval_desc.get(Vocabulary.UPPER_BRACKET),
+                value=int(interval_desc.get(Vocabulary.UPPER_LIMIT)),
+            ),
+        )
+    else:
+        interval = Interval(lower_limit=IntervalLimit(inclusive=True, value=0), upper_limit=None)
 
     inputs = []
     for t in parsed.get(Vocabulary.TINPUTS) or []:

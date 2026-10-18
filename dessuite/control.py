@@ -73,7 +73,7 @@ def control_loop(modbus_device_file: pathlib.Path, model_files: Iterable[pathlib
         modbus_client.disconnect()
 
 
-def time_control_loop(modbus_device_file: pathlib.Path, net_file: pathlib.Path):
+def time_control_loop(modbus_device_file: pathlib.Path, model_file: pathlib.Path):
     """Load a Modbus device file and a Tina Toolbox net file, and execute a control loop."""
 
     modbus_device = modbus.ModbusDevice.import_device_file(modbus_device_file)
@@ -83,7 +83,7 @@ def time_control_loop(modbus_device_file: pathlib.Path, net_file: pathlib.Path):
     max_controllable_events = modbus_device.controllable_events()
     show(f"Maximum controllable events: {max_controllable_events}")
 
-    free_net = petri.Petri.import_tina_file(net_file, max_controllable_events=max_controllable_events)
+    free_net = petri.Petri.import_tina_file(model_file, max_controllable_events=max_controllable_events)
     show(f"Net ({free_net.name}):")
     pprint.pprint(free_net)
 
@@ -231,11 +231,11 @@ class Locked[T]:
     def __init__(self, obj: T):
         super().__init__()
         self.__obj = obj
-        self.lock = threading.RLock()
+        self.lock = threading.Lock()
 
     def __enter__(self) -> T:
         self.lock.acquire()
         return self.__obj
 
-    def __exit__(self, *args, **kwargs):
+    def __exit__(self, *_, **__):
         self.lock.release()
