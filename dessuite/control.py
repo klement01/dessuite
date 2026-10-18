@@ -189,6 +189,7 @@ def send_outgoing_event(
         event_notifier.set()
         show(f"Sent event (1): {event} ({timestamp})")
     else:
+        event_notifier.set()
         show(f"Dropped outgoing event: {event} ({timestamp})")
 
 
