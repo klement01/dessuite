@@ -2,9 +2,9 @@ import collections
 
 import serial
 
-import dessuite.model.des as des
-import dessuite.generator as generator
-import dessuite.generator_tools.modules.hal_uart as hal_uart
+from dessuite import generator
+from dessuite.generator_tools.modules import hal_uart
+from dessuite.model import des
 
 
 class DesSerialClient:

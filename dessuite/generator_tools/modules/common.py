@@ -1,10 +1,10 @@
 import abc
 import dataclasses
-import xml.etree.ElementTree as ElementTree
+from xml.etree import ElementTree
 
 from csnake import CodeWriter, Function
 
-import dessuite.generator_tools.core as core
+from dessuite.generator_tools import core
 
 
 @dataclasses.dataclass

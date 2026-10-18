@@ -22,6 +22,9 @@ t 60.0 325.0 sf1_fdhome n 0 w n {} ne
 t 160.0 160.0 sf1_fdon n 0 w n {} ne
 p 60.0 195.0 sf1_OFF 1 n
 t 160.0 235.0 sf1_fdoff n 0 w n {} ne
+t 1200.0 285.0 op_l1on s 1000 w n {} ne
+t 1365.0 285.0 op_l1off s 0 w n {} ne
+p 1280.0 285.0 l1_ON 0 n
 e sf1_pusher_home sf1_fdoff 1 n
 e sf1_fdoff sf1_OFF 1 n
 e sf1_ON sf1_fdoff 1 n
@@ -50,6 +53,11 @@ e cb1_wplv 0.0 74.0 cb1_xs1_transit 0.75 101.0 1 n
 e cb1_xs1_transit xs1_wpar 1 n
 e slide_box_ON 0.4041429917 155.3319027 {cb1_bm+} 0.08428680245 95.01578816 ?-1 n
 e slide_box_ON 0.3967091487 218.4032967 sf1_fdon 0.08462651365 295.8462438 ?-1 n
+e slide_box_ON op_l1on ?1 n
+e l1_ON op_l1off 1 n
+e slide_box_ON op_l1off ?-1 n
+e l1_ON 0.4338723791 37.16180835 op_l1on 0.06395970002 43.46262762 ?-1 n
+e op_l1on l1_ON 1 n
 h Controller normal white bezier
 
 

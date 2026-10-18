@@ -18,7 +18,7 @@ class Controller(abc.ABC):
 
     @abc.abstractmethod
     def update(self, event: Event) -> bool:
-        """Update current state according to event. Return True if state changed, False otherwised."""
+        """Update current state according to event. Return True if state changed, False otherwise."""
         ...
 
     @abc.abstractmethod

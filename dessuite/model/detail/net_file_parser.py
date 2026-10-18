@@ -2,9 +2,9 @@
 
 import dataclasses
 from enum import Enum, StrEnum, auto
-from typing import Final, cast
-import pyparsing as pp
+from typing import Any, Final, cast
 
+import pyparsing as pp
 
 r"""
 The grammar of the Tina Toolbox textual format file (.net) is described in:
@@ -176,11 +176,24 @@ class Arc:
 
 
 @dataclasses.dataclass(frozen=True)
+class IntervalLimit:
+    inclusive: bool
+    value: int
+
+
+@dataclasses.dataclass(frozen=True)
+class Interval:
+    lower_limit: IntervalLimit
+    upper_limit: IntervalLimit | None
+
+
+@dataclasses.dataclass(frozen=True)
 class TransitionDescription:
     transition: str
     label: str | None
     inputs: list[Arc]
     outputs: list[Arc]
+    interval: Interval
 
 
 @dataclasses.dataclass(frozen=True)
@@ -207,6 +220,20 @@ def try_parse_trdesc(desc: str) -> TransitionDescription | None:
 
     name = cast(str, parsed[Vocabulary.TRANSITION])
     label = cast(str | None, parsed.get(Vocabulary.LABEL))
+
+    interval_desc = cast(Any, parsed.get(Vocabulary.INTERVAL))
+    interval = Interval(
+        lower_limit=IntervalLimit(
+            inclusive="[" == interval_desc.get(Vocabulary.LOWER_BRACKET),
+            value=int(interval_desc.get(Vocabulary.LOWER_LIMIT)),
+        ),
+        upper_limit=None
+        if interval_desc.get(Vocabulary.UPPER_LIMIT) == "w"
+        else IntervalLimit(
+            inclusive="]" == interval_desc.get(Vocabulary.UPPER_BRACKET),
+            value=int(interval_desc.get(Vocabulary.UPPER_LIMIT)),
+        ),
+    )
 
     inputs = []
     for t in parsed.get(Vocabulary.TINPUTS) or []:
@@ -235,7 +262,7 @@ def try_parse_trdesc(desc: str) -> TransitionDescription | None:
 
         outputs.append(Arc(place=t[Vocabulary.PLACE], arc_type=ArcType.NORMAL_ARC, weight=weight))
 
-    return TransitionDescription(transition=name, label=label, inputs=inputs, outputs=outputs)
+    return TransitionDescription(transition=name, label=label, inputs=inputs, outputs=outputs, interval=interval)
 
 
 def try_parse_pldesc(desc: str) -> PlaceDescription | None:
