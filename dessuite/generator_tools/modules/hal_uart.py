@@ -78,16 +78,16 @@ class ModuleHalUart(common.GeneratorModule):
         writer.add_line("void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)")
         writer.open_brace()
 
+        writer.add_line("const TickType_t tick = xTaskGetTickCountFromISR();")
         writer.add_line("BaseType_t xHigherPriorityTaskWoken = pdFALSE;")
-        writer.add_line("EventIdx_t eventIdx;")
+        writer.add_line(f"if (huart != &{self.settings.handle}) portYIELD_FROM_ISR(xHigherPriorityTaskWoken);")
         writer.add_line(f"switch ({self.settings.recv_buffer})")
         writer.open_brace()
 
         for value, core_event in self.recv_triggers.items():
             writer.add_line(f"case {value}:")
             writer.indent()
-            writer.add_line(f"eventIdx = {core_event.event_name};")
-            writer.add_line("xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);")
+            writer.add_line(f"NewIncomingEventISR({core_event.event_name}, tick, &xHigherPriorityTaskWoken);")
             writer.add_switch_break()
 
         writer.close_brace()

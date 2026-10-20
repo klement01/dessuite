@@ -93,6 +93,16 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
             for p_idx, p in enumerate(spec.ordered_places)
             if (w := transition.output_weights[p] - transition.input_weights[p]) != 0
         }
+        affected_transitions = [
+            e.event_idx
+            for e in spec.ordered_events
+            if (net.transitions[core_event.event].input_weights | net.transitions[core_event.event].output_weights)
+            & (
+                net.transitions[e.event].input_weights
+                | net.transitions[e.event].read_weights
+                | net.transitions[e.event].inhibitor_weights
+            )
+        ]
 
         inhibitor_arcs_var = Variable(
             f"{core_event.event_name}_INHIBITOR_ARCS",
@@ -115,9 +125,18 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
             value=delta_arcs.items(),  # type: ignore
             array=len(delta_arcs),  # type: ignore
         )
+        affected_transitions_var = Variable(
+            f"{core_event.event_name}_AFFECTED_TRANSITIONS",
+            primitive="EventIdx_t",
+            qualifiers="const",
+            value=affected_transitions,  # type: ignore
+            array=len(affected_transitions),  # type: ignore
+        )
         event_transitions_cw.add_variable_initialization(inhibitor_arcs_var)
         event_transitions_cw.add_variable_initialization(input_arcs_var)
         event_transitions_cw.add_variable_initialization(delta_arcs_var)
+        event_transitions_cw.add_variable_initialization(affected_transitions_var)
+        event_transitions_cw.add_line()
         event_transition_vector_entries.append(
             "{"
             + ", ".join(
@@ -126,9 +145,15 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
                     inhibitor_arcs_var.array,
                     input_arcs_var.array,
                     delta_arcs_var.array,
+                    affected_transitions_var.array,
                     inhibitor_arcs_var.name,
                     input_arcs_var.name,
                     delta_arcs_var.name,
+                    affected_transitions_var.name,
+                    f"pdMS_TO_TICKS({round(transition.interval.lower_limit.total_seconds() * 1e3)}U)",
+                    "portMAX_DELAY"
+                    if transition.interval.upper_limit is None
+                    else f"pdMS_TO_TICKS({round(transition.interval.upper_limit.total_seconds() * 1e3)}U)",
                 )
             )
             + "}"

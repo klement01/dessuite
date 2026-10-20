@@ -60,8 +60,8 @@ class ModuleHalGpio(common.GeneratorModule):
         writer.add_line("void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)")
         writer.open_brace()
 
+        writer.add_line("const TickType_t tick = xTaskGetTickCountFromISR();")
         writer.add_line("BaseType_t xHigherPriorityTaskWoken = pdFALSE;")
-        writer.add_line("EventIdx_t eventIdx;")
         writer.add_line("switch (GPIO_Pin)")
         writer.open_brace()
 
@@ -69,8 +69,7 @@ class ModuleHalGpio(common.GeneratorModule):
             writer.add_line(f"case {pin}{self.settings.pin_suffix}:")
             writer.indent()
             for event_name in event_names:
-                writer.add_line(f"eventIdx = {event_name};")
-                writer.add_line("xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);")
+                writer.add_line(f"NewIncomingEventISR({event_name}, tick, &xHigherPriorityTaskWoken);")
             writer.add_switch_break()
 
         writer.close_brace()
