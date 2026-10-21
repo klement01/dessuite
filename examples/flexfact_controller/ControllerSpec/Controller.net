@@ -1,13 +1,13 @@
 net Controller
-tr {cb1_bm+} cb1_OFF sf1_cb1_transit?1 slide_box_ON?-1 -> cb1_ON 
-tr cb1_boff cb1_ON sf1_cb1_transit?-1 cb1_box_ON?-1 cb1_xs1_transit?-1 -> cb1_OFF 
+tr {cb1_bm+} cb1_OFF slide_box_ON?-1 sf1_cb1_transit?1 -> cb1_ON 
+tr cb1_boff cb1_ON sf1_cb1_transit?-1 cb1_xs1_transit?-1 cb1_box_ON?-1 -> cb1_OFF 
 tr cb1_wpar sf1_cb1_transit -> cb1_box_ON 
 tr cb1_wplv cb1_box_ON -> cb1_xs1_transit 
 an n0 1 {Stack Feeder}
 an n2 1 {Exit Slide}
 an n3 1 {Conveyor Belt}
 tr op_l1off slide_box_ON?-1 l1_ON -> 
-tr op_l1on [1000,w[ slide_box_ON?1 l1_ON?-1 -> l1_ON 
+tr op_l1on [2000,w[ slide_box_ON?1 l1_ON?-1 -> l1_ON 
 tr sf1_fdhome sf1_pusher_home?-1 -> sf1_pusher_home 
 tr sf1_fdoff sf1_ON sf1_pusher_home -> sf1_OFF 
 tr sf1_fdon slide_box_ON?-1 sf1_OFF sf1_box_ON?1 -> sf1_ON 
