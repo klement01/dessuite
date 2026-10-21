@@ -11,6 +11,7 @@
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
+#include "timers.h"
 #include "main.h"
 
 /** Module includes. **/
@@ -61,6 +62,18 @@ enum EventIdx : EventIdx_t
   EVENT_10, // sf1_wplv
   EVENT_11, // xs1_wpar
   EVENT_12, // xs1_wplv
+};
+
+struct RichEvent
+{
+  EventIdx_t idx;
+  TickType_t tick;
+};
+
+struct RichCommand
+{
+  CommandIdx_t idx;
+  TickType_t tick;
 };
 
 struct Place
@@ -234,7 +247,7 @@ const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
   {0, 1, 2, 4, EVENT_2_INHIBITOR_ARCS, EVENT_2_INPUT_ARCS, EVENT_2_DELTA_ARCS, EVENT_2_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
   {0, 1, 2, 3, EVENT_3_INHIBITOR_ARCS, EVENT_3_INPUT_ARCS, EVENT_3_DELTA_ARCS, EVENT_3_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
   {1, 1, 1, 2, EVENT_4_INHIBITOR_ARCS, EVENT_4_INPUT_ARCS, EVENT_4_DELTA_ARCS, EVENT_4_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
-  {1, 1, 1, 2, EVENT_5_INHIBITOR_ARCS, EVENT_5_INPUT_ARCS, EVENT_5_DELTA_ARCS, EVENT_5_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(1000U), portMAX_DELAY},
+  {1, 1, 1, 2, EVENT_5_INHIBITOR_ARCS, EVENT_5_INPUT_ARCS, EVENT_5_DELTA_ARCS, EVENT_5_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(5000U), portMAX_DELAY},
   {1, 0, 1, 2, EVENT_6_INHIBITOR_ARCS, EVENT_6_INPUT_ARCS, EVENT_6_DELTA_ARCS, EVENT_6_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
   {0, 2, 3, 3, EVENT_7_INHIBITOR_ARCS, EVENT_7_INPUT_ARCS, EVENT_7_DELTA_ARCS, EVENT_7_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
   {1, 2, 2, 2, EVENT_8_INHIBITOR_ARCS, EVENT_8_INPUT_ARCS, EVENT_8_DELTA_ARCS, EVENT_8_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
@@ -245,33 +258,15 @@ const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
 };
 
 
-/** Core variables. **/
+/** Inter-task communication, available to modules. **/
 
-/* Current state. */
-struct Place corePlaces[CORE_PLACE_COUNT] = { {1}, {0}, {0}, {0}, {0}, {1}, {0}, {0}, {0}, {0}, {0} };
-TickType_t transitionEnabledTime[CORE_EVENT_COUNT] = { 0 };
-
-/* Inter-task communication. */
-SemaphoreHandle_t PetriNetLock;
 QueueHandle_t IncomingEventsQueue;
 
-struct IncomingEvent
+void NewIncomingEventISR(EventIdx_t eventIdx, TickType_t tick, BaseType_t *xHigherPriorityTaskWoken)
 {
-  EventIdx_t eventIdx;
-  TickType_t tick;
-};
-
-inline void NewIncomingEventISR(EventIdx_t eventIdx, TickType_t tick, BaseType_t *xHigherPriorityTaskWoken)
-{
-  struct IncomingEvent incomingEvent = { .eventIdx = eventIdx, .tick = tick };
+  struct RichEvent incomingEvent = { .idx = eventIdx, .tick = tick };
   xQueueSendToBackFromISR(IncomingEventsQueue, &incomingEvent, xHigherPriorityTaskWoken);
 }
-
-TaskHandle_t ExecuteCommandTaskHandle;
-TaskHandle_t SetCommandTaskHandle;
-TaskHandle_t UpdateStateTaskHandle;
-TaskHandle_t TraceTaskHandle;
-
 
 /** Module data (defines, types and constants). **/
 
@@ -387,10 +382,12 @@ const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
 };
 
 
-/** Petri Net update functions. **/
+/** Petri Net variables and update functions. **/
 
+struct Place corePlaces[CORE_PLACE_COUNT] = { {1}, {0}, {0}, {0}, {0}, {1}, {0}, {0}, {0}, {0}, {0} };
+TickType_t transitionEnabledTime[CORE_EVENT_COUNT] = { 0 };
 
-bool IsTransitionStructurallyEnabled(EventIdx_t eventIdx)
+bool NetIsTransitionStructurallyEnabled(EventIdx_t eventIdx)
 {
   for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcsCount; ++idx)
   {
@@ -411,7 +408,7 @@ bool IsTransitionStructurallyEnabled(EventIdx_t eventIdx)
   return true;
 }
 
-bool IsTransitionEnabled(EventIdx_t eventIdx, TickType_t tick)
+bool NetIsTransitionEnabled(EventIdx_t eventIdx, TickType_t tick)
 {
   if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
     return false;
@@ -421,11 +418,11 @@ bool IsTransitionEnabled(EventIdx_t eventIdx, TickType_t tick)
     && (timeElapsed <= CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit);
 }
 
-void UpdateTransitionEnabledTime(EventIdx_t eventIdx, TickType_t tick)
+void NetUpdateTransitionEnabledTime(EventIdx_t eventIdx, TickType_t tick)
 {
-    if (IsTransitionStructurallyEnabled(eventIdx))
+    if (NetIsTransitionStructurallyEnabled(eventIdx))
     {
-      if (transitionEnabledTime[eventIdx] != portMAX_DELAY)
+      if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
         transitionEnabledTime[eventIdx] = tick;
     }
     else
@@ -434,9 +431,9 @@ void UpdateTransitionEnabledTime(EventIdx_t eventIdx, TickType_t tick)
     }
 }
 
-bool TryUpdatePetriNet(EventIdx_t eventIdx, TickType_t tick)
+bool NetTryUpdate(EventIdx_t eventIdx, TickType_t tick)
 {
-  if (!IsTransitionEnabled(eventIdx, tick))
+  if (!NetIsTransitionEnabled(eventIdx, tick))
     return false;
 
   for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].deltaArcsCount; ++idx)
@@ -447,67 +444,129 @@ bool TryUpdatePetriNet(EventIdx_t eventIdx, TickType_t tick)
   }
 
   for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].affectedTransitionsCount; ++idx)
-    UpdateTransitionEnabledTime(CORE_EVENT_TRANSITIONS[eventIdx].affectedTransitions[idx], tick);
+    NetUpdateTransitionEnabledTime(CORE_EVENT_TRANSITIONS[eventIdx].affectedTransitions[idx], tick);
 
   return true;
 }
 
-
-/** Core tasks. **/
-
-
-void ExecuteCommand(void*)
+bool NetGetNextEnabledCommand(TickType_t currentTick, struct RichCommand *command)
 {
-  for (;;)
+  command->tick = portMAX_DELAY;
+
+  for (CommandIdx_t commandIdx = 0; commandIdx < CORE_COMMAND_COUNT; ++commandIdx)
   {
-    const CommandIdx_t commandIdx = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     const EventIdx_t eventIdx = CORE_COMMANDS[commandIdx].eventIdx;
-    xQueueSendToBack(PendingEventsQueue, &eventIdx, 0);
-    CORE_COMMANDS[commandIdx].handler();
-  }
-}
 
-void UpdateState(void*)
-{
-  for (;;)
-  {
-    EventIdx_t event;
-    if (xQueueReceive(PendingEventsQueue, &event, portMAX_DELAY) != pdPASS)
+    if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
       continue;
-    if (!EventTransitionIsEnabled(event))
+
+    if (CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit != portMAX_DELAY
+      && currentTick > transitionEnabledTime[eventIdx] + CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit)
       continue;
-    for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[event].deltaArcsCount; ++idx)
+
+    const TickType_t commandEnabledTick = transitionEnabledTime[eventIdx] + CORE_EVENT_TRANSITIONS[eventIdx].intervalLowerLimit;
+    if (command->tick == portMAX_DELAY || commandEnabledTick < command->tick)
     {
-      const PlaceIdx_t placeIdx = CORE_EVENT_TRANSITIONS[event].deltaArcs[idx].placeIdx;
-      const ArcWeight_t weight = CORE_EVENT_TRANSITIONS[event].deltaArcs[idx].weight;
-      corePlaces[placeIdx].markings += weight;
+      command->idx = commandIdx;
+      command->tick = commandEnabledTick;
     }
-    xTaskNotifyGive(SetCommandTaskHandle);
+  }
+
+  return command->tick != portMAX_DELAY;
+}
+
+
+/** Core variables and tasks. **/
+
+SemaphoreHandle_t NetMutex;
+TaskHandle_t TaskLoopHandlePetriNetUpdatesHandle;
+TaskHandle_t TaskLoopHandleIncomingEventsHandle;
+TimerHandle_t TimerOneshotExecuteOutgoingCommandHandle;
+CommandIdx_t outgoingCommand; // TODO: fix.
+
+void NetLock()
+{
+  xSemaphoreTake(NetMutex, portMAX_DELAY);
+}
+
+void NetRelease()
+{
+  xSemaphoreGive(NetMutex);
+}
+
+void NetNotifyUpdate()
+{
+  xTaskNotify(TaskLoopHandlePetriNetUpdatesHandle, 0, eNoAction);
+}
+
+void NetWaitForUpdate()
+{
+  ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+}
+
+void TaskLoopHandlePetriNetUpdates(void*)
+{
+  {
+    // TODO: move elsewhere.
+    TickType_t tick = xTaskGetTickCount();
+    for (EventIdx_t eventIdx = 0; eventIdx < CORE_EVENT_COUNT; ++eventIdx)
+      NetUpdateTransitionEnabledTime(eventIdx, tick);
+  }
+
+  for (;;)
+  {
+    NetLock();
+    struct RichCommand nextEnabledCommand;
+    const bool foundEnabledCommand = NetGetNextEnabledCommand(xTaskGetTickCount(), &nextEnabledCommand);
+    NetRelease();
+
+    if (foundEnabledCommand)
+    {
+      outgoingCommand = nextEnabledCommand.idx;
+      const TickType_t currentTick = xTaskGetTickCount();
+      const TickType_t period = nextEnabledCommand.tick > currentTick
+        ? nextEnabledCommand.tick - currentTick
+        : 1;
+      xTimerChangePeriod(TimerOneshotExecuteOutgoingCommandHandle, period, portMAX_DELAY);
+      xTimerStart(TimerOneshotExecuteOutgoingCommandHandle, portMAX_DELAY);
+    }
+
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    xTimerStop(TimerOneshotExecuteOutgoingCommandHandle, portMAX_DELAY);
   }
 }
 
-void SetCommand(void*)
+void TaskLoopHandleIncomingEvents(void*)
 {
   for (;;)
   {
-    bool commandFound = false;
-    CommandIdx_t commandIdx;
-    do
-    {
-      commandFound = false;
-      for (commandIdx = 0; commandIdx < CORE_COMMAND_COUNT; ++commandIdx)
-      {
-        if (EventTransitionIsEnabled(CORE_COMMANDS[commandIdx].eventIdx))
-        {
-          commandFound = true;
-          break;
-        }
-      }
-    } while (ulTaskNotifyTake(pdTRUE, 0) != 0);
-    if (commandFound)
-      xTaskNotify(ExecuteCommandTaskHandle, commandIdx, eSetValueWithOverwrite);
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    struct RichEvent event;
+    if (xQueueReceive(IncomingEventsQueue, &event, portMAX_DELAY) != pdPASS)
+      continue;
+
+    NetLock();
+    const bool netUpdated = NetTryUpdate(event.idx, event.tick);
+    NetRelease();
+
+    if (netUpdated)
+      NetNotifyUpdate();
   }
+}
+
+void TimerOneshotExecuteOutgoingCommand(TimerHandle_t)
+{
+    const TickType_t tick = xTaskGetTickCount();
+    const CommandIdx_t commandIdx = outgoingCommand; // TODO: fix.
+
+    NetLock();
+    const bool netUpdated = NetTryUpdate(CORE_COMMANDS[commandIdx].eventIdx, tick);
+    NetRelease();
+
+    if (netUpdated)
+    {
+      NetNotifyUpdate();
+      CORE_COMMANDS[commandIdx].handler();
+    }
 }
 
 
@@ -516,12 +575,13 @@ void SetCommand(void*)
 void DesControllerSetup(void)
 {
   /* Core initialization. */
-  PetriNetLock = xSemaphoreCreateMutex();
-  IncomingEventsQueue = xQueueCreate(CORE_EVENT_QUEUE_SIZE, sizeof(struct IncomingEvent));
+  NetMutex = xSemaphoreCreateMutex();
+  IncomingEventsQueue = xQueueCreate(CORE_EVENT_QUEUE_SIZE, sizeof(struct RichEvent));
 
-  xTaskCreate(ExecuteCommand, CORE_EXECUTE_COMMAND_NAME, CORE_EXECUTE_COMMAND_SDEPTH, NULL, CORE_EXECUTE_COMMAND_PRIORITY, &ExecuteCommandTaskHandle);
-  xTaskCreate(UpdateState, CORE_UPDATE_STATE_NAME, CORE_UPDATE_STATE_SDEPTH, NULL, CORE_UPDATE_STATE_PRIORITY, &UpdateStateTaskHandle);
-  xTaskCreate(SetCommand, CORE_SET_COMMAND_NAME, CORE_SET_COMMAND_SDEPTH, NULL, CORE_SET_COMMAND_PRIORITY, &SetCommandTaskHandle);
+  // TODO: config? PS Priority = 0 -> idle
+  xTaskCreate(TaskLoopHandlePetriNetUpdates, "HandlePetriNetUpdates", configMINIMAL_STACK_SIZE, NULL, 9, &TaskLoopHandlePetriNetUpdatesHandle);
+  xTaskCreate(TaskLoopHandleIncomingEvents, "HandleIncomingEvents", configMINIMAL_STACK_SIZE, NULL, 10, &TaskLoopHandleIncomingEventsHandle);
+  TimerOneshotExecuteOutgoingCommandHandle = xTimerCreate("ExecuteOutgoingCommand", portMAX_DELAY, pdFALSE, NULL, TimerOneshotExecuteOutgoingCommand);
 
   /* Module initialization. */
   HAL_UART_Receive_IT(&huart1, &huart1_recv_buffer, sizeof(huart1_recv_buffer));
