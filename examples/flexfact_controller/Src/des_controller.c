@@ -24,15 +24,15 @@
 /* User parameters. */
 #define CORE_EVENT_QUEUE_SIZE (32)
 
-#define CORE_HANDLE_NET_UPDATES_NAME ("ExecuteCommand")
+#define CORE_HANDLE_NET_UPDATES_NAME ("HandleNetUpdates")
 #define CORE_HANDLE_NET_UPDATES_SDEPTH (configMINIMAL_STACK_SIZE)
 #define CORE_HANDLE_NET_UPDATES_PRIORITY (configMAX_PRIORITIES - 3)
 
-#define CORE_HANDLE_INCOMING_EVENTS_NAME ("UpdateState")
+#define CORE_HANDLE_INCOMING_EVENTS_NAME ("HandleIncomingEvents")
 #define CORE_HANDLE_INCOMING_EVENTS_SDEPTH (configMINIMAL_STACK_SIZE)
 #define CORE_HANDLE_INCOMING_EVENTS_PRIORITY (configMAX_PRIORITIES - 2)
 
-#define CORE_EXECUTE_OUTGOING_COMMAND_NAME ("SetCommand")
+#define CORE_EXECUTE_OUTGOING_COMMAND_NAME ("ExecuteOutgoingCommand")
 #define CORE_EXECUTE_OUTGOING_COMMAND_PRIORITY (configMAX_PRIORITIES - 1)
 
 /* Petri Net definition. */
@@ -586,7 +586,7 @@ void TimerOneshotExecuteOutgoingCommand(TimerHandle_t timerHandle)
 
     CommandIdx_t commandIdx;
     configASSERT(pdPASS == xQueueReceive(OutgoingCommandQueue, &commandIdx, 0));
-    DoExecuteCommand(commandIdx)
+    DoExecuteCommand(commandIdx);
     configASSERT(pdPASS == xTaskNotify(TaskLoopHandleNetUpdatesHandle, 0, eNoAction));
 }
 
