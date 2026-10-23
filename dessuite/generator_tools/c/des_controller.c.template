@@ -24,17 +24,16 @@
 /* User parameters. */
 #define CORE_EVENT_QUEUE_SIZE ({CORE_EVENT_QUEUE_SIZE})
 
-#define CORE_EXECUTE_COMMAND_NAME ({CORE_EXECUTE_COMMAND_NAME})
-#define CORE_UPDATE_STATE_NAME ({CORE_UPDATE_STATE_NAME})
-#define CORE_SET_COMMAND_NAME ({CORE_SET_COMMAND_NAME})
+#define CORE_HANDLE_NET_UPDATES_NAME ({CORE_HANDLE_NET_UPDATES_NAME})
+#define CORE_HANDLE_NET_UPDATES_SDEPTH ({CORE_HANDLE_NET_UPDATES_SDEPTH})
+#define CORE_HANDLE_NET_UPDATES_PRIORITY ({CORE_HANDLE_NET_UPDATES_PRIORITY})
 
-#define CORE_EXECUTE_COMMAND_SDEPTH ({CORE_EXECUTE_COMMAND_SDEPTH})
-#define CORE_UPDATE_STATE_SDEPTH ({CORE_UPDATE_STATE_SDEPTH})
-#define CORE_SET_COMMAND_SDEPTH ({CORE_SET_COMMAND_SDEPTH})
+#define CORE_HANDLE_INCOMING_EVENTS_NAME ({CORE_HANDLE_INCOMING_EVENTS_NAME})
+#define CORE_HANDLE_INCOMING_EVENTS_SDEPTH ({CORE_HANDLE_INCOMING_EVENTS_SDEPTH})
+#define CORE_HANDLE_INCOMING_EVENTS_PRIORITY ({CORE_HANDLE_INCOMING_EVENTS_PRIORITY})
 
-#define CORE_EXECUTE_COMMAND_PRIORITY ({CORE_EXECUTE_COMMAND_PRIORITY})
-#define CORE_UPDATE_STATE_PRIORITY ({CORE_UPDATE_STATE_PRIORITY})
-#define CORE_SET_COMMAND_PRIORITY ({CORE_SET_COMMAND_PRIORITY})
+#define CORE_EXECUTE_OUTGOING_COMMAND_NAME ({CORE_EXECUTE_OUTGOING_COMMAND_NAME})
+#define CORE_EXECUTE_OUTGOING_COMMAND_PRIORITY ({CORE_EXECUTE_OUTGOING_COMMAND_PRIORITY})
 
 /* Petri Net definition. */
 #define CORE_EVENT_COUNT ({CORE_EVENT_COUNT})
@@ -244,93 +243,100 @@ bool NetGetNextEnabledCommand(TickType_t currentTick, struct RichCommand *comman
 /** Core variables and tasks. **/
 
 SemaphoreHandle_t NetMutex;
-TaskHandle_t TaskLoopHandlePetriNetUpdatesHandle;
+
+inline void NetLock()
+{
+  configASSERT(pdTRUE == xSemaphoreTake(NetMutex, portMAX_DELAY));
+}
+
+inline void NetRelease()
+{
+  configASSERT(pdTRUE == xSemaphoreGive(NetMutex));
+}
+
+TaskHandle_t TaskLoopHandleNetUpdatesHandle;
 TaskHandle_t TaskLoopHandleIncomingEventsHandle;
 TimerHandle_t TimerOneshotExecuteOutgoingCommandHandle;
-CommandIdx_t outgoingCommand; // TODO: fix.
 
-void NetLock()
-{
-  xSemaphoreTake(NetMutex, portMAX_DELAY);
-}
+QueueHandle_t OutgoingCommandQueue;
 
-void NetRelease()
-{
-  xSemaphoreGive(NetMutex);
-}
-
-void NetNotifyUpdate()
-{
-  xTaskNotify(TaskLoopHandlePetriNetUpdatesHandle, 0, eNoAction);
-}
-
-void NetWaitForUpdate()
-{
-  ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-}
-
-void TaskLoopHandlePetriNetUpdates(void*)
+void TaskLoopHandleNetUpdates(void*)
 {
   {
-    // TODO: move elsewhere.
-    TickType_t tick = xTaskGetTickCount();
+    // Initialize Petri Net.
+    TickType_t startTick = xTaskGetTickCount();
     for (EventIdx_t eventIdx = 0; eventIdx < CORE_EVENT_COUNT; ++eventIdx)
-      NetUpdateTransitionEnabledTime(eventIdx, tick);
+      NetUpdateTransitionEnabledTime(eventIdx, startTick);
+
+    // Notify task of Petri Net initialization.
+    configASSERT(pdPASS == xTaskNotify(TaskLoopHandleIncomingEventsHandle, 0, eNoAction));
+
+    // Set priority for timer task (TimerOneshotExecuteOutgoingCommand).
+    vTaskPrioritySet(xTimerGetTimerDaemonTaskHandle(), CORE_EXECUTE_OUTGOING_COMMAND_PRIORITY);
   }
 
   for (;;)
   {
-    NetLock();
     struct RichCommand nextEnabledCommand;
+
+    NetLock();
     const bool foundEnabledCommand = NetGetNextEnabledCommand(xTaskGetTickCount(), &nextEnabledCommand);
     NetRelease();
 
     if (foundEnabledCommand)
     {
-      outgoingCommand = nextEnabledCommand.idx;
+      // Schedule next enabled command.
+      configASSERT(pdPASS == xQueueOverwrite(OutgoingCommandQueue, &nextEnabledCommand.idx));
       const TickType_t currentTick = xTaskGetTickCount();
       const TickType_t period = nextEnabledCommand.tick > currentTick
         ? nextEnabledCommand.tick - currentTick
         : 1;
-      xTimerChangePeriod(TimerOneshotExecuteOutgoingCommandHandle, period, portMAX_DELAY);
-      xTimerStart(TimerOneshotExecuteOutgoingCommandHandle, portMAX_DELAY);
+      configASSERT(pdPASS == xTimerChangePeriod(TimerOneshotExecuteOutgoingCommandHandle, period, portMAX_DELAY));
+      configASSERT(pdPASS == xTimerStart(TimerOneshotExecuteOutgoingCommandHandle, portMAX_DELAY));
     }
 
+    // Wait for Petri Net update, cancel scheduled command, if any.
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    xTimerStop(TimerOneshotExecuteOutgoingCommandHandle, portMAX_DELAY);
+    configASSERT(pdPASS == xTimerStop(TimerOneshotExecuteOutgoingCommandHandle, portMAX_DELAY));
   }
 }
 
 void TaskLoopHandleIncomingEvents(void*)
 {
+  // Wait for Petri Net initialization from TaskLoopHandleNetUpdates.
+  ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
   for (;;)
   {
     struct RichEvent event;
-    if (xQueueReceive(IncomingEventsQueue, &event, portMAX_DELAY) != pdPASS)
-      continue;
+    configASSERT(pdPASS == xQueueReceive(IncomingEventsQueue, &event, portMAX_DELAY));
 
     NetLock();
     const bool netUpdated = NetTryUpdate(event.idx, event.tick);
     NetRelease();
 
     if (netUpdated)
-      NetNotifyUpdate();
+      configASSERT(pdPASS == xTaskNotify(TaskLoopHandleNetUpdatesHandle, 0, eNoAction));
   }
 }
 
-void TimerOneshotExecuteOutgoingCommand(TimerHandle_t)
+void TimerOneshotExecuteOutgoingCommand(TimerHandle_t timerHandle)
 {
-    const TickType_t tick = xTaskGetTickCount();
-    const CommandIdx_t commandIdx = outgoingCommand; // TODO: fix.
+    if (timerHandle != TimerOneshotExecuteOutgoingCommandHandle)
+      // Prevent execution by user code.
+      return;
+
+    CommandIdx_t commandIdx;
+    configASSERT(pdPASS == xQueueReceive(OutgoingCommandQueue, &commandIdx, 0));
 
     NetLock();
-    const bool netUpdated = NetTryUpdate(CORE_COMMANDS[commandIdx].eventIdx, tick);
+    const bool netUpdated = NetTryUpdate(CORE_COMMANDS[commandIdx].eventIdx, xTaskGetTickCount());
     NetRelease();
 
     if (netUpdated)
     {
-      NetNotifyUpdate();
       CORE_COMMANDS[commandIdx].handler();
+      configASSERT(pdPASS == xTaskNotify(TaskLoopHandleNetUpdatesHandle, 0, eNoAction));
     }
 }
 
@@ -340,13 +346,13 @@ void TimerOneshotExecuteOutgoingCommand(TimerHandle_t)
 void DesControllerSetup(void)
 {
   /* Core initialization. */
-  NetMutex = xSemaphoreCreateMutex();
-  IncomingEventsQueue = xQueueCreate(CORE_EVENT_QUEUE_SIZE, sizeof(struct RichEvent));
+  configASSERT(NULL != (NetMutex = xSemaphoreCreateMutex()));
+  configASSERT(NULL != (IncomingEventsQueue = xQueueCreate(CORE_EVENT_QUEUE_SIZE, sizeof(struct RichEvent))));
+  configASSERT(NULL != (OutgoingCommandQueue = xQueueCreate(1, sizeof(CommandIdx_t))));
 
-  // TODO: config? PS Priority = 0 -> idle
-  xTaskCreate(TaskLoopHandlePetriNetUpdates, "HandlePetriNetUpdates", configMINIMAL_STACK_SIZE, NULL, 9, &TaskLoopHandlePetriNetUpdatesHandle);
-  xTaskCreate(TaskLoopHandleIncomingEvents, "HandleIncomingEvents", configMINIMAL_STACK_SIZE, NULL, 10, &TaskLoopHandleIncomingEventsHandle);
-  TimerOneshotExecuteOutgoingCommandHandle = xTimerCreate("ExecuteOutgoingCommand", portMAX_DELAY, pdFALSE, NULL, TimerOneshotExecuteOutgoingCommand);
+  configASSERT(pdPASS == xTaskCreate(TaskLoopHandleNetUpdates, CORE_HANDLE_NET_UPDATES_NAME, CORE_HANDLE_NET_UPDATES_SDEPTH, NULL, CORE_HANDLE_NET_UPDATES_PRIORITY, &TaskLoopHandleNetUpdatesHandle));
+  configASSERT(pdPASS == xTaskCreate(TaskLoopHandleIncomingEvents, CORE_HANDLE_INCOMING_EVENTS_NAME, CORE_HANDLE_INCOMING_EVENTS_SDEPTH, NULL, CORE_HANDLE_INCOMING_EVENTS_PRIORITY, &TaskLoopHandleIncomingEventsHandle));
+  configASSERT(NULL != (TimerOneshotExecuteOutgoingCommandHandle = xTimerCreate(CORE_EXECUTE_OUTGOING_COMMAND_NAME, portMAX_DELAY, pdFALSE, NULL, TimerOneshotExecuteOutgoingCommand)));
 
   /* Module initialization. */
 {MODULE_INIT_FUNCTION_CALLS}

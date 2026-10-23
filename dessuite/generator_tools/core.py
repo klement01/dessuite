@@ -16,7 +16,7 @@ class CoreEvent:
 class CoreTaskSettings:
     internal_name: str
     priority: str | int
-    stack_depth: str | int = "configMINIMAL_STACK_SIZE"
+    stack_depth: str | int | None = "configMINIMAL_STACK_SIZE"
     _name: str | None = None
 
     @property
@@ -33,42 +33,47 @@ class CoreTaskSettings:
 
 
 @dataclass
-class CoreTaskExecuteCommandSettings(CoreTaskSettings):
+class CoreTaskHandleNetUpdatesSettings(CoreTaskSettings):
     internal_name: str = "ExecuteCommand"
-    priority: str | int = 12
+    priority: str | int = "configMAX_PRIORITIES - 3"
 
 
 @dataclass
-class CoreTaskUpdateStateSettings(CoreTaskSettings):
+class CoreTaskHandleIncomingEventsSettings(CoreTaskSettings):
     internal_name: str = "UpdateState"
-    priority: str | int = 11
+    priority: str | int = "configMAX_PRIORITIES - 2"
 
 
 @dataclass
-class CoreTaskSetCommandSettings(CoreTaskSettings):
+class CoreTaskExecuteOutgoingCommandsSettings(CoreTaskSettings):
     internal_name: str = "SetCommand"
-    priority: str | int = 10
+    priority: str | int = "configMAX_PRIORITIES - 1"
+    stack_depth: str | int | None = None
 
 
 @dataclass
 class CoreSettings:
     auto_enumerate_events: bool = True
     event_queue_size: int | str = 32
-    task_execute_command: CoreTaskExecuteCommandSettings = field(default_factory=CoreTaskExecuteCommandSettings)
-    task_update_state: CoreTaskUpdateStateSettings = field(default_factory=CoreTaskUpdateStateSettings)
-    task_set_command: CoreTaskSetCommandSettings = field(default_factory=CoreTaskSetCommandSettings)
+    task_handle_net_updates: CoreTaskHandleNetUpdatesSettings = field(default_factory=CoreTaskHandleNetUpdatesSettings)
+    task_handle_incoming_events: CoreTaskHandleIncomingEventsSettings = field(
+        default_factory=CoreTaskHandleIncomingEventsSettings
+    )
+    task_execute_outgoing_commands: CoreTaskExecuteOutgoingCommandsSettings = field(
+        default_factory=CoreTaskExecuteOutgoingCommandsSettings
+    )
 
     def update_from_element_tree(self, core_settings: ElementTree.Element[str]):
         if (m := core_settings.find("AutoEnumerate")) is not None:
             self.auto_enumerate_events = key_is_truthy(m.text)
         if (m := core_settings.find("EventQueueSize")) is not None:
             self.event_queue_size = m.text  # pyright: ignore[reportAttributeAccessIssue]
-        if (m := core_settings.find("Tasks/ExecuteCommand")) is not None:
-            self.task_execute_command.update_from_element_tree(m)
-        if (m := core_settings.find("Tasks/UpdateState")) is not None:
-            self.task_update_state.update_from_element_tree(m)
-        if (m := core_settings.find("Tasks/SetCommand")) is not None:
-            self.task_set_command.update_from_element_tree(m)
+        if (m := core_settings.find("Tasks/HandleNetUpdates")) is not None:
+            self.task_handle_net_updates.update_from_element_tree(m)
+        if (m := core_settings.find("Tasks/HandleIncomingEvents")) is not None:
+            self.task_handle_incoming_events.update_from_element_tree(m)
+        if (m := core_settings.find("Tasks/ExecuteOutgoingCommands")) is not None:
+            self.task_execute_outgoing_commands.update_from_element_tree(m)
 
         if not self.auto_enumerate_events:
             raise ValueError("core: AutoEnumerate=False is not supported yet")
