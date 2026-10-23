@@ -493,7 +493,7 @@ void NetRelease()
   configASSERT(pdTRUE == xSemaphoreGive(NetMutex));
 }
 
-bool DoExecuteCommand(CommandIdx_t commandIdx)
+void DoExecuteCommand(CommandIdx_t commandIdx)
 {
   NetLock();
   const bool netUpdated = NetTryUpdate(CORE_COMMANDS[commandIdx].eventIdx, xTaskGetTickCount());
@@ -501,8 +501,6 @@ bool DoExecuteCommand(CommandIdx_t commandIdx)
 
   if (netUpdated)
     CORE_COMMANDS[commandIdx].handler();
-
-  return netUpdated;
 }
 
 void TaskLoopHandleNetUpdates(void*)
@@ -529,7 +527,7 @@ void TaskLoopHandleNetUpdates(void*)
     NetRelease();
 
     bool waitForNetUpdate = true;
-
+    
     if (foundEnabledCommand)
     {
       // Send or schedule next enabled command.
@@ -546,10 +544,9 @@ void TaskLoopHandleNetUpdates(void*)
       {
         // Command is already enabled; temporarily change priority and execute.
         vTaskPrioritySet(NULL, CORE_EXECUTE_OUTGOING_COMMAND_PRIORITY);
-        const bool netUpdated = DoExecuteCommand(nextEnabledCommand.idx);
+        DoExecuteCommand(nextEnabledCommand.idx);
         vTaskPrioritySet(NULL, CORE_HANDLE_NET_UPDATES_PRIORITY);
-        if (netUpdated)
-          waitForNetUpdate = false;
+        waitForNetUpdate = false;
       }
     }
 
@@ -589,8 +586,8 @@ void TimerOneshotExecuteOutgoingCommand(TimerHandle_t timerHandle)
 
     CommandIdx_t commandIdx;
     configASSERT(pdPASS == xQueueReceive(OutgoingCommandQueue, &commandIdx, 0));
-    if (DoExecuteCommand(commandIdx))
-      configASSERT(pdPASS == xTaskNotify(TaskLoopHandleNetUpdatesHandle, 0, eNoAction));
+    DoExecuteCommand(commandIdx)
+    configASSERT(pdPASS == xTaskNotify(TaskLoopHandleNetUpdatesHandle, 0, eNoAction));
 }
 
 
