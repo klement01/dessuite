@@ -14,26 +14,28 @@
 #include "timers.h"
 #include "main.h"
 
-/** Module includes. **/
+/** Module includes and defines. **/
 
 
 
+// TODO: move to module.
+#define DESSUITE_TRACE
 
 /** Core data (defines, types and constants). **/
 
 /* User parameters. */
 #define CORE_EVENT_QUEUE_SIZE (32)
 
-#define CORE_HANDLE_NET_UPDATES_NAME ("HandleNetUpdates")
+#define CORE_HANDLE_NET_UPDATES_NAME ("DessuiteHandleNetUpdates")
 #define CORE_HANDLE_NET_UPDATES_SDEPTH (configMINIMAL_STACK_SIZE)
 #define CORE_HANDLE_NET_UPDATES_PRIORITY (configMAX_PRIORITIES - 3)
 
-#define CORE_HANDLE_INCOMING_EVENTS_NAME ("HandleIncomingEvents")
+#define CORE_HANDLE_INCOMING_EVENTS_NAME ("DessuiteHandleIncomingEvents")
 #define CORE_HANDLE_INCOMING_EVENTS_SDEPTH (configMINIMAL_STACK_SIZE)
 #define CORE_HANDLE_INCOMING_EVENTS_PRIORITY (configMAX_PRIORITIES - 2)
 
-#define CORE_EXECUTE_OUTGOING_COMMAND_NAME ("ExecuteOutgoingCommand")
-#define CORE_EXECUTE_OUTGOING_COMMAND_PRIORITY (configMAX_PRIORITIES - 1)
+#define CORE_EXECUTE_OUTGOING_COMMANDS_NAME ("DessuiteExecuteOutgoingCommands")
+#define CORE_EXECUTE_OUTGOING_COMMANDS_PRIORITY (configMAX_PRIORITIES - 1)
 
 /* Petri Net definition. */
 #define CORE_EVENT_COUNT (13)
@@ -324,6 +326,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 
 
+// TODO: move to module.
+uint32_t TraceSendChar(uint32_t ch) {
+  return ITM_SendChar(ch);
+}
 
 /** Core command handler. */
 
@@ -474,12 +480,88 @@ bool NetGetNextEnabledCommand(TickType_t currentTick, struct RichCommand *comman
   return command->tick != portMAX_DELAY;
 }
 
+/** Log functions. **/
+
+#ifdef DESSUITE_TRACE
+
+#define CORE_TRACE_QUEUE_SIZE ({CORE_TRACE_QUEUE_SIZE})
+
+#define CORE_HANDLE_TRACE_NAME ({CORE_HANDLE_TRACE_NAME})
+#define CORE_HANDLE_TRACE_SDEPTH ({CORE_HANDLE_TRACE_SDEPTH})
+#define CORE_HANDLE_TRACE_PRIORITY ({CORE_HANDLE_TRACE_PRIORITY})
+
+typedef uint32_t TraceType_t;
+
+enum TraceType : TraceType_t
+{
+  TRACE_TYPE_NET_START_TICK = ({TRACE_TYPE_NET_START_TICK})
+  TRACE_TYPE_TICK_RATE = ({TRACE_TYPE_TICK_RATE})
+  TRACE_TYPE_INCOMING_EVENT_ACCEPTED = ({TRACE_TYPE_INCOMING_EVENT})
+  TRACE_TYPE_INCOMING_EVENT_DROPPED = ({TRACE_TYPE_INCOMING_EVENT})
+  TRACE_TYPE_OUTGOING_COMMAND_QUEUED = ({TRACE_TYPE_OUTGOING_COMMAND_QUEUED})
+  TRACE_TYPE_OUTGOING_COMMAND_DROPPED = ({TRACE_TYPE_OUTGOING_COMMAND_DROPPED})
+  TRACE_TYPE_OUTGOING_COMMAND_STARTED = ({TRACE_TYPE_OUTGOING_COMMAND_STARTED})
+  TRACE_TYPE_OUTGOING_COMMAND_FINISHED = ({TRACE_TYPE_OUTGOING_COMMAND_FINISHED})
+};
+
+struct Trace
+{
+  TickType_t traceTick;
+  TraceType_t traceType;
+  union {
+    struct RichEvent event;
+    TraceType_t startTick;
+    TraceType_t tickRate;
+  } data;
+};
+
+TaskHandle_t TaskLoopHandleTraceHandle;
+QueueHandle_t TraceQueue;
+
+void TaskLoopHandleTrace(void*)
+{
+  for (;;)
+  {
+    struct Trace trace;
+    configASSERT(pdPASS == xQueueReceive(TraceQueue, &trace, portMAX_DELAY));
+
+    // TODO.
+    TraceSendChar(trace.traceTick);
+    TraceSendChar(trace.traceType);
+
+    switch (trace.traceType)
+    {
+      case TRACE_TYPE_NET_START_TICK:
+        TraceSendChar(trace.data.startTick);
+        break;
+      case TRACE_TYPE_TICK_RATE:
+        TraceSendChar(trace.data.tickRate);
+        break;
+      case TRACE_TYPE_INCOMING_EVENT_ACCEPTED:
+      case: TRACE_TYPE_INCOMING_EVENT_DROPPED:
+      case: TRACE_TYPE_OUTGOING_COMMAND_QUEUED:
+      case: TRACE_TYPE_OUTGOING_COMMAND_DROPPED:
+      case: TRACE_TYPE_OUTGOING_COMMAND_STARTED:
+      case: TRACE_TYPE_OUTGOING_COMMAND_FINISHED:
+        TraceSendChar(trace.data.event.idx);
+        TraceSendChar(trace.data.event.tick);
+        break;
+      default:
+        configASSERT(false);
+    }
+  }
+}
+
+#else
+
+#endif
+
 
 /** Core variables, tasks and helper functions. **/
 
 TaskHandle_t TaskLoopHandleNetUpdatesHandle;
 TaskHandle_t TaskLoopHandleIncomingEventsHandle;
-TimerHandle_t TimerOneshotExecuteOutgoingCommandHandle;
+TimerHandle_t TimerOneshotExecuteOutgoingCommandsHandle;
 QueueHandle_t OutgoingCommandQueue;
 SemaphoreHandle_t NetMutex;
 
@@ -514,8 +596,8 @@ void TaskLoopHandleNetUpdates(void*)
     // Notify task of Petri Net initialization.
     configASSERT(pdPASS == xTaskNotify(TaskLoopHandleIncomingEventsHandle, 0, eNoAction));
 
-    // Set priority for timer task (TimerOneshotExecuteOutgoingCommand).
-    vTaskPrioritySet(xTimerGetTimerDaemonTaskHandle(), CORE_EXECUTE_OUTGOING_COMMAND_PRIORITY);
+    // Set priority for timer task (TimerOneshotExecuteOutgoingCommands).
+    vTaskPrioritySet(xTimerGetTimerDaemonTaskHandle(), CORE_EXECUTE_OUTGOING_COMMANDS_PRIORITY);
   }
 
   for (;;)
@@ -537,13 +619,13 @@ void TaskLoopHandleNetUpdates(void*)
         // Command isn't enabled yet; schedule execution.
         const TickType_t period = nextEnabledCommand.tick - currentTick;
         configASSERT(pdPASS == xQueueOverwrite(OutgoingCommandQueue, &nextEnabledCommand.idx));
-        configASSERT(pdPASS == xTimerChangePeriod(TimerOneshotExecuteOutgoingCommandHandle, period, portMAX_DELAY));
-        configASSERT(pdPASS == xTimerStart(TimerOneshotExecuteOutgoingCommandHandle, portMAX_DELAY));
+        configASSERT(pdPASS == xTimerChangePeriod(TimerOneshotExecuteOutgoingCommandsHandle, period, portMAX_DELAY));
+        configASSERT(pdPASS == xTimerStart(TimerOneshotExecuteOutgoingCommandsHandle, portMAX_DELAY));
       }
       else
       {
         // Command is already enabled; temporarily change priority and execute.
-        vTaskPrioritySet(NULL, CORE_EXECUTE_OUTGOING_COMMAND_PRIORITY);
+        vTaskPrioritySet(NULL, CORE_EXECUTE_OUTGOING_COMMANDS_PRIORITY);
         DoExecuteCommand(nextEnabledCommand.idx);
         vTaskPrioritySet(NULL, CORE_HANDLE_NET_UPDATES_PRIORITY);
         waitForNetUpdate = false;
@@ -554,7 +636,7 @@ void TaskLoopHandleNetUpdates(void*)
     if (waitForNetUpdate)
     {
       ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-      configASSERT(pdPASS == xTimerStop(TimerOneshotExecuteOutgoingCommandHandle, portMAX_DELAY));
+      configASSERT(pdPASS == xTimerStop(TimerOneshotExecuteOutgoingCommandsHandle, portMAX_DELAY));
     }
   }
 }
@@ -578,9 +660,9 @@ void TaskLoopHandleIncomingEvents(void*)
   }
 }
 
-void TimerOneshotExecuteOutgoingCommand(TimerHandle_t timerHandle)
+void TimerOneshotExecuteOutgoingCommands(TimerHandle_t timerHandle)
 {
-    if (timerHandle != TimerOneshotExecuteOutgoingCommandHandle)
+    if (timerHandle != TimerOneshotExecuteOutgoingCommandsHandle)
       // Prevent execution by user code.
       return;
 
@@ -602,7 +684,12 @@ void DesControllerSetup(void)
 
   configASSERT(pdPASS == xTaskCreate(TaskLoopHandleNetUpdates, CORE_HANDLE_NET_UPDATES_NAME, CORE_HANDLE_NET_UPDATES_SDEPTH, NULL, CORE_HANDLE_NET_UPDATES_PRIORITY, &TaskLoopHandleNetUpdatesHandle));
   configASSERT(pdPASS == xTaskCreate(TaskLoopHandleIncomingEvents, CORE_HANDLE_INCOMING_EVENTS_NAME, CORE_HANDLE_INCOMING_EVENTS_SDEPTH, NULL, CORE_HANDLE_INCOMING_EVENTS_PRIORITY, &TaskLoopHandleIncomingEventsHandle));
-  configASSERT(NULL != (TimerOneshotExecuteOutgoingCommandHandle = xTimerCreate(CORE_EXECUTE_OUTGOING_COMMAND_NAME, portMAX_DELAY, pdFALSE, NULL, TimerOneshotExecuteOutgoingCommand)));
+  configASSERT(NULL != (TimerOneshotExecuteOutgoingCommandsHandle = xTimerCreate(CORE_EXECUTE_OUTGOING_COMMANDS_NAME, portMAX_DELAY, pdFALSE, NULL, TimerOneshotExecuteOutgoingCommands)));
+
+#ifdef DESSUITE_TRACE
+  configASSERT(NULL != (TraceQueue = xQueueCreate(CORE_TRACE_QUEUE_SIZE, sizeof(struct Trace))));
+  configASSERT(pdPASS == xTaskCreate(TaskLoopHandleTrace, CORE_HANDLE_TRACE_NAME, CORE_HANDLE_TRACE_SDEPTH, NULL, CORE_HANDLE_TRACE_PRIORITY, &TaskLoopHandleTraceHandle));
+#endif
 
   /* Module initialization. */
   HAL_UART_Receive_IT(&huart1, &huart1_recv_buffer, sizeof(huart1_recv_buffer));

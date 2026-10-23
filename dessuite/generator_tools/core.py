@@ -34,19 +34,19 @@ class CoreTaskSettings:
 
 @dataclass
 class CoreTaskHandleNetUpdatesSettings(CoreTaskSettings):
-    internal_name: str = "HandleNetUpdates"
+    internal_name: str = "DessuiteHandleNetUpdates"
     priority: str | int = "configMAX_PRIORITIES - 3"
 
 
 @dataclass
 class CoreTaskHandleIncomingEventsSettings(CoreTaskSettings):
-    internal_name: str = "HandleIncomingEvents"
+    internal_name: str = "DessuiteHandleIncomingEvents"
     priority: str | int = "configMAX_PRIORITIES - 2"
 
 
 @dataclass
-class CoreTaskExecuteOutgoingCommandSettings(CoreTaskSettings):
-    internal_name: str = "ExecuteOutgoingCommand"
+class CoreTaskExecuteOutgoingCommandsSettings(CoreTaskSettings):
+    internal_name: str = "DessuiteExecuteOutgoingCommands"
     priority: str | int = "configMAX_PRIORITIES - 1"
     stack_depth: str | int | None = None
 
@@ -59,8 +59,8 @@ class CoreSettings:
     task_handle_incoming_events: CoreTaskHandleIncomingEventsSettings = field(
         default_factory=CoreTaskHandleIncomingEventsSettings
     )
-    task_execute_outgoing_commands: CoreTaskExecuteOutgoingCommandSettings = field(
-        default_factory=CoreTaskExecuteOutgoingCommandSettings
+    task_execute_outgoing_commands: CoreTaskExecuteOutgoingCommandsSettings = field(
+        default_factory=CoreTaskExecuteOutgoingCommandsSettings
     )
 
     def update_from_element_tree(self, core_settings: ElementTree.Element[str]):
