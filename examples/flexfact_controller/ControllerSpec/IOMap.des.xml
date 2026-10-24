@@ -1,7 +1,13 @@
 <Dessuite>
 	<Core>
 		<!-- Core settings -->
-		<IncomingEventQueueSize>32</IncomingEventQueueSize>
+		<EventQueueSize>32</EventQueueSize>
+		<Tasks>
+			<TraceLoop>
+				<Enabled>True</Enabled>
+				<TraceQueueSize>32</TraceQueueSize>
+			</TraceLoop>
+		</Tasks>
 	</Core>
 	<Modules>
 		<!-- Module settings -->

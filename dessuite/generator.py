@@ -7,6 +7,7 @@ from csnake import CodeWriter, Function, Variable
 import dessuite.generator_tools.c as c_files
 from dessuite.generator_tools import core, modules
 from dessuite.model import des, petri
+from dessuite.trace import TraceType
 
 
 @dataclass
@@ -191,15 +192,21 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
 
     # Finalize.
     template_kv_pairs = [
+        # Module includes and defines.
         ("MODULE_INCLUDES", module_includes_cw),  # TODO
-
-        ("CORE_INCOMING_EVENT_QUEUE_SIZE", spec.core_settings.incoming_event_queue_size),
-        ("CORE_WAKE_ON_INCOMING_EVENT_NAME", f'"{spec.core_settings.task_wake_on_incoming_event.name}"'),
-        ("CORE_WAKE_ON_INCOMING_EVENT_SDEPTH", spec.core_settings.task_wake_on_incoming_event.stack_depth),
-        ("CORE_WAKE_ON_INCOMING_EVENT_PRIORITY", spec.core_settings.task_wake_on_incoming_event.priority),
-        ("CORE_WAKE_ON_SCHEDULED_COMMAND_NAME", f'"{spec.core_settings.task_wake_on_scheduled_command.name}"'),
-        ("CORE_WAKE_ON_SCHEDULED_COMMAND_PRIORITY", spec.core_settings.task_wake_on_scheduled_command.priority),
-
+        # User parameters.
+        ("CORE_EVENT_QUEUE_SIZE", spec.core_settings.event_queue_size),
+        ("CORE_EVENT_LOOP_TASK_NAME", f'"{spec.core_settings.task_event_loop.name}"'),
+        ("CORE_EVENT_LOOP_TASK_SDEPTH", spec.core_settings.task_event_loop.stack_depth),
+        ("CORE_EVENT_LOOP_TASK_PRIORITY", spec.core_settings.task_event_loop.priority),
+        ("CORE_SCHEDULE_COMMAND_TASK_NAME", f'"{spec.core_settings.task_schedule_command.name}"'),
+        ("CORE_SCHEDULE_COMMAND_TASK_PRIORITY", spec.core_settings.task_schedule_command.priority),
+        ("CORE_ENABLE_TRACE", "true" if spec.core_settings.task_trace_loop.enabled else "false"),
+        ("CORE_TRACE_QUEUE_SIZE", spec.core_settings.task_trace_loop.queue_size),
+        ("CORE_TRACE_LOOP_TASK_NAME", f'"{spec.core_settings.task_trace_loop.name}"'),
+        ("CORE_TRACE_LOOP_TASK_SDEPTH", spec.core_settings.task_trace_loop.stack_depth),
+        ("CORE_TRACE_LOOP_TASK_PRIORITY", spec.core_settings.task_trace_loop.priority),
+        # Petri net definition.
         ("CORE_EVENT_COUNT", len(spec.ordered_events)),
         ("CORE_COMMAND_COUNT", len(spec.ordered_commands)),
         ("CORE_PLACE_COUNT", len(spec.ordered_places)),
@@ -207,16 +214,25 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         ("CORE_EVENT_DATA", event_transitions_cw),
         ("CORE_EVENT_TRANSITION_VECTOR", f",\n{' ' * INDENT}".join(event_transition_vector_entries)),
         ("CORE_INITIAL_MARKINGS", ", ".join(f"{{{spec.net.initial_state[p]}}}" for p in spec.ordered_places)),
-
+        # Module data.
         ("MODULE_DATA", module_data_cw),
         ("MODULE_VARIABLES", module_variables_cw),
         ("MODULE_FUNCTION_DEFINITIONS", module_function_definitions_cw),
         ("MODULE_INPUT_INTERFACE_FUNCTIONS", module_input_interface_functions_cw),
         ("MODULE_OUTPUT_INTERFACE_FUNCTIONS", module_output_interface_functions_cw),
-
+        # Trace data.
+        ("TRACE_TYPE_NET_START_TICK", TraceType.NET_START_TICK),
+        ("TRACE_TYPE_TICK_RATE", TraceType.TICK_RATE),
+        ("TRACE_TYPE_INCOMING_EVENT_ACCEPTED", TraceType.INCOMING_EVENT_ACCEPTED),
+        ("TRACE_TYPE_INCOMING_EVENT_DROPPED", TraceType.INCOMING_EVENT_DROPPED),
+        ("TRACE_TYPE_OUTGOING_COMMAND_QUEUED", TraceType.OUTGOING_COMMAND_QUEUED),
+        ("TRACE_TYPE_OUTGOING_COMMAND_DROPPED", TraceType.OUTGOING_COMMAND_DROPPED),
+        ("TRACE_TYPE_OUTGOING_COMMAND_STARTED", TraceType.OUTGOING_COMMAND_STARTED),
+        ("TRACE_TYPE_OUTGOING_COMMAND_FINISHED", TraceType.OUTGOING_COMMAND_FINISHED),
+        # Core data.
         ("CORE_COMMAND_HANDLER_FUNCTIONS", command_handler_cw),
         ("CORE_COMMAND_HANDLER_VECTOR", f",\n{' ' * INDENT}".join(command_handler_vector_entries)),
-
+        # Module initialization.
         ("MODULE_INIT_FUNCTION_CALLS", module_init_function_calls_cw),
     ]
     src = template

@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdint.h>
 
 #include "FreeRTOS.h"
@@ -19,21 +20,46 @@
 
 // TODO: move to module.
 #include "main.h"
-// #define DESSUITE_TRACE
+
+int _write(int file, char *ptr, int len) 
+{
+  for (int i = 0; i < len; i++)
+  {
+    ITM_SendChar((*ptr++));
+  }
+  return len;
+}
 
 /** Core data (defines, types and constants). **/
 
 /* User parameters. */
-#define CORE_INCOMING_EVENT_QUEUE_SIZE (32)
 
-#define CORE_WAKE_ON_INCOMING_EVENT_NAME ("DessuiteWakeOnIncomingEvent")
-#define CORE_WAKE_ON_INCOMING_EVENT_SDEPTH (configMINIMAL_STACK_SIZE)
-#define CORE_WAKE_ON_INCOMING_EVENT_PRIORITY (configMAX_PRIORITIES - 2)
+#if (true)
+#define CORE_ENABLE_TRACE
+#endif
 
-#define CORE_WAKE_ON_SCHEDULED_COMMAND_NAME ("DessuiteWakeOnScheduledCommand")
-#define CORE_WAKE_ON_SCHEDULED_COMMAND_PRIORITY (configMAX_PRIORITIES - 1)
+#define CORE_EVENT_QUEUE_SIZE (32)
+
+#define CORE_EVENT_LOOP_TASK_NAME ("DessuiteEventLoop")
+#define CORE_EVENT_LOOP_TASK_SDEPTH (configMINIMAL_STACK_SIZE)
+#define CORE_EVENT_LOOP_TASK_PRIORITY (configMAX_PRIORITIES - 1)
+
+#define CORE_SCHEDULE_COMMAND_TASK_NAME ("DessuiteScheduleCommand")
+#define CORE_SCHEDULE_COMMAND_TASK_PRIORITY (configMAX_PRIORITIES - 2)
+
+
+#ifdef CORE_ENABLE_TRACE
+
+#define CORE_TRACE_QUEUE_SIZE (32)
+
+#define CORE_TRACE_LOOP_TASK_NAME ("DessuiteTraceLoop")
+#define CORE_TRACE_LOOP_TASK_SDEPTH (configMINIMAL_STACK_SIZE)
+#define CORE_TRACE_LOOP_TASK_PRIORITY (1)
+
+#endif
 
 /* Petri Net definition. */
+
 #define CORE_EVENT_COUNT (13)
 #define CORE_COMMAND_COUNT (6)
 #define CORE_PLACE_COUNT (11)
@@ -59,6 +85,7 @@ enum EventIdx : EventIdx_t
   EVENT_10, // sf1_wplv
   EVENT_11, // xs1_wpar
   EVENT_12, // xs1_wplv
+  EVENT_SCHEDULED_COMMAND
 };
 
 struct RichEvent
@@ -257,12 +284,12 @@ const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
 
 /** Inter-task communication, available to modules. **/
 
-QueueHandle_t IncomingEventsQueue;
+QueueHandle_t EventQueue;
 
 void NewIncomingEventISR(EventIdx_t eventIdx, TickType_t tick, BaseType_t *xHigherPriorityTaskWoken)
 {
   struct RichEvent incomingEvent = { .idx = eventIdx, .tick = tick };
-  xQueueSendToBackFromISR(IncomingEventsQueue, &incomingEvent, xHigherPriorityTaskWoken);
+  xQueueSendToBackFromISR(EventQueue, &incomingEvent, xHigherPriorityTaskWoken);
 }
 
 /** Module data (defines, types and constants). **/
@@ -476,28 +503,23 @@ bool NetGetNextEnabledCommand(TickType_t currentTick, struct RichCommand *comman
   return command->tick != portMAX_DELAY;
 }
 
+
 /** Log functions. **/
 
-#ifdef DESSUITE_TRACE
+#ifdef CORE_ENABLE_TRACE
 
-#define CORE_TRACE_QUEUE_SIZE ({CORE_TRACE_QUEUE_SIZE})
-
-#define CORE_HANDLE_TRACE_NAME ({CORE_HANDLE_TRACE_NAME})
-#define CORE_HANDLE_TRACE_SDEPTH ({CORE_HANDLE_TRACE_SDEPTH})
-#define CORE_HANDLE_TRACE_PRIORITY ({CORE_HANDLE_TRACE_PRIORITY})
-
-typedef uint32_t TraceType_t;
+typedef uint8_t TraceType_t;
 
 enum TraceType : TraceType_t
 {
-  TRACE_TYPE_NET_START_TICK = ({TRACE_TYPE_NET_START_TICK})
-  TRACE_TYPE_TICK_RATE = ({TRACE_TYPE_TICK_RATE})
-  TRACE_TYPE_INCOMING_EVENT_ACCEPTED = ({TRACE_TYPE_INCOMING_EVENT})
-  TRACE_TYPE_INCOMING_EVENT_DROPPED = ({TRACE_TYPE_INCOMING_EVENT})
-  TRACE_TYPE_OUTGOING_COMMAND_QUEUED = ({TRACE_TYPE_OUTGOING_COMMAND_QUEUED})
-  TRACE_TYPE_OUTGOING_COMMAND_DROPPED = ({TRACE_TYPE_OUTGOING_COMMAND_DROPPED})
-  TRACE_TYPE_OUTGOING_COMMAND_STARTED = ({TRACE_TYPE_OUTGOING_COMMAND_STARTED})
-  TRACE_TYPE_OUTGOING_COMMAND_FINISHED = ({TRACE_TYPE_OUTGOING_COMMAND_FINISHED})
+  TRACE_TYPE_NET_START_TICK = (1),
+  TRACE_TYPE_TICK_RATE = (2),
+  TRACE_TYPE_INCOMING_EVENT_ACCEPTED = (3),
+  TRACE_TYPE_INCOMING_EVENT_DROPPED = (4),
+  TRACE_TYPE_OUTGOING_COMMAND_QUEUED = (5),
+  TRACE_TYPE_OUTGOING_COMMAND_DROPPED = (6),
+  TRACE_TYPE_OUTGOING_COMMAND_STARTED = (7),
+  TRACE_TYPE_OUTGOING_COMMAND_FINISHED = (8)
 };
 
 struct Trace
@@ -511,41 +533,47 @@ struct Trace
   } data;
 };
 
-TaskHandle_t TaskLoopHandleTraceHandle;
+TaskHandle_t TaskTraceLoopHandle;
 QueueHandle_t TraceQueue;
 
-void TaskLoopHandleTrace(void*)
+void TaskTraceLoop(void*)
 {
   for (;;)
   {
     struct Trace trace;
     configASSERT(pdPASS == xQueueReceive(TraceQueue, &trace, portMAX_DELAY));
 
-    // TODO.
-    TraceSendChar(trace.traceTick);
-    TraceSendChar(trace.traceType);
+    printf("%lu", trace.traceTick);
+    printf("%u", trace.traceType);
 
     switch (trace.traceType)
     {
       case TRACE_TYPE_NET_START_TICK:
-        TraceSendChar(trace.data.startTick);
+        printf("%u", trace.data.startTick);
         break;
       case TRACE_TYPE_TICK_RATE:
-        TraceSendChar(trace.data.tickRate);
+        printf("%u", trace.data.tickRate);
         break;
       case TRACE_TYPE_INCOMING_EVENT_ACCEPTED:
-      case: TRACE_TYPE_INCOMING_EVENT_DROPPED:
-      case: TRACE_TYPE_OUTGOING_COMMAND_QUEUED:
-      case: TRACE_TYPE_OUTGOING_COMMAND_DROPPED:
-      case: TRACE_TYPE_OUTGOING_COMMAND_STARTED:
-      case: TRACE_TYPE_OUTGOING_COMMAND_FINISHED:
-        TraceSendChar(trace.data.event.idx);
-        TraceSendChar(trace.data.event.tick);
+      case TRACE_TYPE_INCOMING_EVENT_DROPPED:
+      case TRACE_TYPE_OUTGOING_COMMAND_QUEUED:
+      case TRACE_TYPE_OUTGOING_COMMAND_DROPPED:
+      case TRACE_TYPE_OUTGOING_COMMAND_STARTED:
+      case TRACE_TYPE_OUTGOING_COMMAND_FINISHED:
+        printf("%u", trace.data.event.idx);
+        printf("%lu", trace.data.event.tick);
         break;
       default:
         configASSERT(false);
     }
   }
+
+  printf("\n");
+}
+
+void TraceNetStartTick()
+{
+
 }
 
 #else
@@ -555,53 +583,10 @@ void TaskLoopHandleTrace(void*)
 
 /** Core variables, tasks and helper functions. **/
 
-SemaphoreHandle_t EventLoopMutex;
-TaskHandle_t TaskLoopWakeOnIncomingEventHandle;
-TimerHandle_t TimerOneshotWakeOnScheduledCommandHandle;
+TaskHandle_t TaskEventLoopHandle;
+TimerHandle_t TimerScheduleCommandHandle;
 
-void DoEventLoop()
-{
-  // Try to acquire event loop; failure indicates another task is executing event loop.
-  if (pdTRUE != xSemaphoreTake(EventLoopMutex, 0))
-    return;
-
-  // Process incoming events and execute commands until there are no new events and no immediate commands.
-  for (;;)
-  {
-    // Process incoming events.
-    {
-      struct RichEvent event;
-      while (pdPASS == xQueueReceive(IncomingEventsQueue, &event, 0))
-        NetTryUpdate(event.idx, event.tick);;
-    }
-
-    // Get next enabled command or break if there isn't one.
-    struct RichCommand command;
-    if (!NetGetNextEnabledCommand(xTaskGetTickCount(), &command))
-      break;
-
-    const TickType_t currentTick = xTaskGetTickCount();
-    if (command.tick > currentTick)
-    {
-      // Command isn't enabled yet: schedule execution.
-      const TickType_t period = command.tick - currentTick;
-      configASSERT(pdPASS == xTimerChangePeriod(TimerOneshotWakeOnScheduledCommandHandle, period, portMAX_DELAY));
-      configASSERT(pdPASS == xTimerStart(TimerOneshotWakeOnScheduledCommandHandle, portMAX_DELAY));
-      break;
-    }
-    else
-    {
-      // Command is already enabled: execute immediately.
-      if (NetTryUpdate(CORE_COMMANDS[command.idx].eventIdx, xTaskGetTickCount()))
-        CORE_COMMANDS[command.idx].handler();
-    }
-  }
-
-  // Release event loop.
-  configASSERT(pdTRUE == xSemaphoreGive(EventLoopMutex));
-}
-
-void TaskLoopWakeOnIncomingEvent(void*)
+void TaskEventLoop(void*)
 {
   {
     // Initialize Petri Net.
@@ -609,30 +594,62 @@ void TaskLoopWakeOnIncomingEvent(void*)
     for (EventIdx_t eventIdx = 0; eventIdx < CORE_EVENT_COUNT; ++eventIdx)
       NetUpdateTransitionEnabledTime(eventIdx, startTick);
 
-    // Set priority for timer task (TimerOneshotWakeOnScheduledCommand).
-    vTaskPrioritySet(xTimerGetTimerDaemonTaskHandle(), CORE_WAKE_ON_SCHEDULED_COMMAND_PRIORITY);
+    // Set priority for timer task (TimerScheduleCommand).
+    vTaskPrioritySet(xTimerGetTimerDaemonTaskHandle(), CORE_SCHEDULE_COMMAND_TASK_PRIORITY);
   }
 
   for (;;)
   {
     // Wait for an incoming event.
     struct RichEvent event;
-    configASSERT(pdPASS == xQueuePeek(IncomingEventsQueue, &event, portMAX_DELAY));
+    configASSERT(pdPASS == xQueuePeek(EventQueue, &event, portMAX_DELAY));
 
     // Cancel pending command timer, if any.
-    configASSERT(pdPASS == xTimerStop(TimerOneshotWakeOnScheduledCommandHandle, portMAX_DELAY));
+    configASSERT(pdPASS == xTimerStop(TimerScheduleCommandHandle, portMAX_DELAY));
 
-    DoEventLoop();
+    // Process incoming events and execute commands until there are no new events and no immediate commands.
+    for (;;)
+    {
+      // Process incoming events.
+      {
+        struct RichEvent event;
+        while (pdPASS == xQueueReceive(EventQueue, &event, 0))
+          if (event.idx != EVENT_SCHEDULED_COMMAND)
+            NetTryUpdate(event.idx, event.tick);;
+      }
+
+      // Get next enabled command or break if there isn't one.
+      struct RichCommand command;
+      if (!NetGetNextEnabledCommand(xTaskGetTickCount(), &command))
+        break;
+
+      const TickType_t currentTick = xTaskGetTickCount();
+      if (command.tick > currentTick)
+      {
+        // Command isn't enabled yet: schedule execution.
+        const TickType_t period = command.tick - currentTick;
+        configASSERT(pdPASS == xTimerChangePeriod(TimerScheduleCommandHandle, period, portMAX_DELAY));
+        configASSERT(pdPASS == xTimerStart(TimerScheduleCommandHandle, portMAX_DELAY));
+        break;
+      }
+      else
+      {
+        // Command is already enabled: execute immediately.
+        if (NetTryUpdate(CORE_COMMANDS[command.idx].eventIdx, xTaskGetTickCount()))
+          CORE_COMMANDS[command.idx].handler();
+      }
+    }
   }
 }
 
-void TimerOneshotWakeOnScheduledCommand(TimerHandle_t timerHandle)
+void TimerScheduleCommand(TimerHandle_t timerHandle)
 {
-  if (timerHandle != TimerOneshotWakeOnScheduledCommandHandle)
+  if (timerHandle != TimerScheduleCommandHandle)
     // Prevent execution by user code.
     return;
 
-  DoEventLoop();
+  struct RichEvent scheduledCommand = { .idx = EVENT_SCHEDULED_COMMAND };
+  configASSERT(pdPASS == xQueueSendToBack(EventQueue, &scheduledCommand, 0));
 }
 
 
@@ -641,15 +658,14 @@ void TimerOneshotWakeOnScheduledCommand(TimerHandle_t timerHandle)
 void DesControllerSetup(void)
 {
   /* Core initialization. */
-  configASSERT(NULL != (EventLoopMutex = xSemaphoreCreateMutex()));
-  configASSERT(NULL != (IncomingEventsQueue = xQueueCreate(CORE_INCOMING_EVENT_QUEUE_SIZE, sizeof(struct RichEvent))));
+  configASSERT(NULL != (EventQueue = xQueueCreate(CORE_EVENT_QUEUE_SIZE, sizeof(struct RichEvent))));
 
-  configASSERT(pdPASS == xTaskCreate(TaskLoopWakeOnIncomingEvent, CORE_WAKE_ON_INCOMING_EVENT_NAME, CORE_WAKE_ON_INCOMING_EVENT_SDEPTH, NULL, CORE_WAKE_ON_INCOMING_EVENT_PRIORITY, &TaskLoopWakeOnIncomingEventHandle));
-  configASSERT(NULL != (TimerOneshotWakeOnScheduledCommandHandle = xTimerCreate(CORE_WAKE_ON_SCHEDULED_COMMAND_NAME, portMAX_DELAY, pdFALSE, NULL, TimerOneshotWakeOnScheduledCommand)));
+  configASSERT(pdPASS == xTaskCreate(TaskEventLoop, CORE_EVENT_LOOP_TASK_NAME, CORE_EVENT_LOOP_TASK_SDEPTH, NULL, CORE_EVENT_LOOP_TASK_PRIORITY, &TaskEventLoopHandle));
+  configASSERT(NULL != (TimerScheduleCommandHandle = xTimerCreate(CORE_SCHEDULE_COMMAND_TASK_NAME, portMAX_DELAY, pdFALSE, NULL, TimerScheduleCommand)));
 
-#ifdef DESSUITE_TRACE
+#ifdef CORE_ENABLE_TRACE
   configASSERT(NULL != (TraceQueue = xQueueCreate(CORE_TRACE_QUEUE_SIZE, sizeof(struct Trace))));
-  configASSERT(pdPASS == xTaskCreate(TaskLoopHandleTrace, CORE_HANDLE_TRACE_NAME, CORE_HANDLE_TRACE_SDEPTH, NULL, CORE_HANDLE_TRACE_PRIORITY, &TaskLoopHandleTraceHandle));
+  configASSERT(pdPASS == xTaskCreate(TaskTraceLoop, CORE_TRACE_LOOP_TASK_NAME, CORE_TRACE_LOOP_TASK_SDEPTH, NULL, CORE_TRACE_LOOP_TASK_PRIORITY, &TaskTraceLoopHandle));
 #endif
 
   /* Module initialization. */
