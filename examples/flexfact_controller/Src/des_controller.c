@@ -12,30 +12,26 @@
 #include "queue.h"
 #include "semphr.h"
 #include "timers.h"
-#include "main.h"
 
 /** Module includes and defines. **/
 
 
 
 // TODO: move to module.
-#define DESSUITE_TRACE
+#include "main.h"
+// #define DESSUITE_TRACE
 
 /** Core data (defines, types and constants). **/
 
 /* User parameters. */
-#define CORE_EVENT_QUEUE_SIZE (32)
+#define CORE_INCOMING_EVENT_QUEUE_SIZE (32)
 
-#define CORE_HANDLE_NET_UPDATES_NAME ("DessuiteHandleNetUpdates")
-#define CORE_HANDLE_NET_UPDATES_SDEPTH (configMINIMAL_STACK_SIZE)
-#define CORE_HANDLE_NET_UPDATES_PRIORITY (configMAX_PRIORITIES - 3)
+#define CORE_WAKE_ON_INCOMING_EVENT_NAME ("DessuiteWakeOnIncomingEvent")
+#define CORE_WAKE_ON_INCOMING_EVENT_SDEPTH (configMINIMAL_STACK_SIZE)
+#define CORE_WAKE_ON_INCOMING_EVENT_PRIORITY (configMAX_PRIORITIES - 2)
 
-#define CORE_HANDLE_INCOMING_EVENTS_NAME ("DessuiteHandleIncomingEvents")
-#define CORE_HANDLE_INCOMING_EVENTS_SDEPTH (configMINIMAL_STACK_SIZE)
-#define CORE_HANDLE_INCOMING_EVENTS_PRIORITY (configMAX_PRIORITIES - 2)
-
-#define CORE_EXECUTE_OUTGOING_COMMANDS_NAME ("DessuiteExecuteOutgoingCommands")
-#define CORE_EXECUTE_OUTGOING_COMMANDS_PRIORITY (configMAX_PRIORITIES - 1)
+#define CORE_WAKE_ON_SCHEDULED_COMMAND_NAME ("DessuiteWakeOnScheduledCommand")
+#define CORE_WAKE_ON_SCHEDULED_COMMAND_PRIORITY (configMAX_PRIORITIES - 1)
 
 /* Petri Net definition. */
 #define CORE_EVENT_COUNT (13)
@@ -425,15 +421,15 @@ bool NetIsTransitionEnabled(EventIdx_t eventIdx, TickType_t tick)
 
 void NetUpdateTransitionEnabledTime(EventIdx_t eventIdx, TickType_t tick)
 {
-    if (NetIsTransitionStructurallyEnabled(eventIdx))
-    {
-      if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
-        transitionEnabledTime[eventIdx] = tick;
-    }
-    else
-    {
-      transitionEnabledTime[eventIdx] = portMAX_DELAY;
-    }
+  if (NetIsTransitionStructurallyEnabled(eventIdx))
+  {
+    if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
+      transitionEnabledTime[eventIdx] = tick;
+  }
+  else
+  {
+    transitionEnabledTime[eventIdx] = portMAX_DELAY;
+  }
 }
 
 bool NetTryUpdate(EventIdx_t eventIdx, TickType_t tick)
@@ -559,33 +555,53 @@ void TaskLoopHandleTrace(void*)
 
 /** Core variables, tasks and helper functions. **/
 
-TaskHandle_t TaskLoopHandleNetUpdatesHandle;
-TaskHandle_t TaskLoopHandleIncomingEventsHandle;
-TimerHandle_t TimerOneshotExecuteOutgoingCommandsHandle;
-QueueHandle_t OutgoingCommandQueue;
-SemaphoreHandle_t NetMutex;
+SemaphoreHandle_t EventLoopMutex;
+TaskHandle_t TaskLoopWakeOnIncomingEventHandle;
+TimerHandle_t TimerOneshotWakeOnScheduledCommandHandle;
 
-void NetLock()
+void DoEventLoop()
 {
-  configASSERT(pdTRUE == xSemaphoreTake(NetMutex, portMAX_DELAY));
+  // Try to acquire event loop; failure indicates another task is executing event loop.
+  if (pdTRUE != xSemaphoreTake(EventLoopMutex, 0))
+    return;
+
+  // Process incoming events and execute commands until there are no new events and no immediate commands.
+  for (;;)
+  {
+    // Process incoming events.
+    {
+      struct RichEvent event;
+      while (pdPASS == xQueueReceive(IncomingEventsQueue, &event, 0))
+        NetTryUpdate(event.idx, event.tick);;
+    }
+
+    // Get next enabled command or break if there isn't one.
+    struct RichCommand command;
+    if (!NetGetNextEnabledCommand(xTaskGetTickCount(), &command))
+      break;
+
+    const TickType_t currentTick = xTaskGetTickCount();
+    if (command.tick > currentTick)
+    {
+      // Command isn't enabled yet: schedule execution.
+      const TickType_t period = command.tick - currentTick;
+      configASSERT(pdPASS == xTimerChangePeriod(TimerOneshotWakeOnScheduledCommandHandle, period, portMAX_DELAY));
+      configASSERT(pdPASS == xTimerStart(TimerOneshotWakeOnScheduledCommandHandle, portMAX_DELAY));
+      break;
+    }
+    else
+    {
+      // Command is already enabled: execute immediately.
+      if (NetTryUpdate(CORE_COMMANDS[command.idx].eventIdx, xTaskGetTickCount()))
+        CORE_COMMANDS[command.idx].handler();
+    }
+  }
+
+  // Release event loop.
+  configASSERT(pdTRUE == xSemaphoreGive(EventLoopMutex));
 }
 
-void NetRelease()
-{
-  configASSERT(pdTRUE == xSemaphoreGive(NetMutex));
-}
-
-void DoExecuteCommand(CommandIdx_t commandIdx)
-{
-  NetLock();
-  const bool netUpdated = NetTryUpdate(CORE_COMMANDS[commandIdx].eventIdx, xTaskGetTickCount());
-  NetRelease();
-
-  if (netUpdated)
-    CORE_COMMANDS[commandIdx].handler();
-}
-
-void TaskLoopHandleNetUpdates(void*)
+void TaskLoopWakeOnIncomingEvent(void*)
 {
   {
     // Initialize Petri Net.
@@ -593,83 +609,30 @@ void TaskLoopHandleNetUpdates(void*)
     for (EventIdx_t eventIdx = 0; eventIdx < CORE_EVENT_COUNT; ++eventIdx)
       NetUpdateTransitionEnabledTime(eventIdx, startTick);
 
-    // Notify task of Petri Net initialization.
-    configASSERT(pdPASS == xTaskNotify(TaskLoopHandleIncomingEventsHandle, 0, eNoAction));
-
-    // Set priority for timer task (TimerOneshotExecuteOutgoingCommands).
-    vTaskPrioritySet(xTimerGetTimerDaemonTaskHandle(), CORE_EXECUTE_OUTGOING_COMMANDS_PRIORITY);
+    // Set priority for timer task (TimerOneshotWakeOnScheduledCommand).
+    vTaskPrioritySet(xTimerGetTimerDaemonTaskHandle(), CORE_WAKE_ON_SCHEDULED_COMMAND_PRIORITY);
   }
 
   for (;;)
   {
-    struct RichCommand nextEnabledCommand;
-
-    NetLock();
-    const bool foundEnabledCommand = NetGetNextEnabledCommand(xTaskGetTickCount(), &nextEnabledCommand);
-    NetRelease();
-
-    bool waitForNetUpdate = true;
-    
-    if (foundEnabledCommand)
-    {
-      // Send or schedule next enabled command.
-      const TickType_t currentTick = xTaskGetTickCount();
-      if (nextEnabledCommand.tick > currentTick)
-      {
-        // Command isn't enabled yet; schedule execution.
-        const TickType_t period = nextEnabledCommand.tick - currentTick;
-        configASSERT(pdPASS == xQueueOverwrite(OutgoingCommandQueue, &nextEnabledCommand.idx));
-        configASSERT(pdPASS == xTimerChangePeriod(TimerOneshotExecuteOutgoingCommandsHandle, period, portMAX_DELAY));
-        configASSERT(pdPASS == xTimerStart(TimerOneshotExecuteOutgoingCommandsHandle, portMAX_DELAY));
-      }
-      else
-      {
-        // Command is already enabled; temporarily change priority and execute.
-        vTaskPrioritySet(NULL, CORE_EXECUTE_OUTGOING_COMMANDS_PRIORITY);
-        DoExecuteCommand(nextEnabledCommand.idx);
-        vTaskPrioritySet(NULL, CORE_HANDLE_NET_UPDATES_PRIORITY);
-        waitForNetUpdate = false;
-      }
-    }
-
-    // Wait for Petri Net update and cancel scheduled command, if any.
-    if (waitForNetUpdate)
-    {
-      ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-      configASSERT(pdPASS == xTimerStop(TimerOneshotExecuteOutgoingCommandsHandle, portMAX_DELAY));
-    }
-  }
-}
-
-void TaskLoopHandleIncomingEvents(void*)
-{
-  // Wait for Petri Net initialization from TaskLoopHandleNetUpdates.
-  ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-  for (;;)
-  {
+    // Wait for an incoming event.
     struct RichEvent event;
-    configASSERT(pdPASS == xQueueReceive(IncomingEventsQueue, &event, portMAX_DELAY));
+    configASSERT(pdPASS == xQueuePeek(IncomingEventsQueue, &event, portMAX_DELAY));
 
-    NetLock();
-    const bool netUpdated = NetTryUpdate(event.idx, event.tick);
-    NetRelease();
+    // Cancel pending command timer, if any.
+    configASSERT(pdPASS == xTimerStop(TimerOneshotWakeOnScheduledCommandHandle, portMAX_DELAY));
 
-    if (netUpdated)
-      configASSERT(pdPASS == xTaskNotify(TaskLoopHandleNetUpdatesHandle, 0, eNoAction));
+    DoEventLoop();
   }
 }
 
-void TimerOneshotExecuteOutgoingCommands(TimerHandle_t timerHandle)
+void TimerOneshotWakeOnScheduledCommand(TimerHandle_t timerHandle)
 {
-    if (timerHandle != TimerOneshotExecuteOutgoingCommandsHandle)
-      // Prevent execution by user code.
-      return;
+  if (timerHandle != TimerOneshotWakeOnScheduledCommandHandle)
+    // Prevent execution by user code.
+    return;
 
-    CommandIdx_t commandIdx;
-    configASSERT(pdPASS == xQueueReceive(OutgoingCommandQueue, &commandIdx, 0));
-    DoExecuteCommand(commandIdx);
-    configASSERT(pdPASS == xTaskNotify(TaskLoopHandleNetUpdatesHandle, 0, eNoAction));
+  DoEventLoop();
 }
 
 
@@ -678,13 +641,11 @@ void TimerOneshotExecuteOutgoingCommands(TimerHandle_t timerHandle)
 void DesControllerSetup(void)
 {
   /* Core initialization. */
-  configASSERT(NULL != (NetMutex = xSemaphoreCreateMutex()));
-  configASSERT(NULL != (IncomingEventsQueue = xQueueCreate(CORE_EVENT_QUEUE_SIZE, sizeof(struct RichEvent))));
-  configASSERT(NULL != (OutgoingCommandQueue = xQueueCreate(1, sizeof(CommandIdx_t))));
+  configASSERT(NULL != (EventLoopMutex = xSemaphoreCreateMutex()));
+  configASSERT(NULL != (IncomingEventsQueue = xQueueCreate(CORE_INCOMING_EVENT_QUEUE_SIZE, sizeof(struct RichEvent))));
 
-  configASSERT(pdPASS == xTaskCreate(TaskLoopHandleNetUpdates, CORE_HANDLE_NET_UPDATES_NAME, CORE_HANDLE_NET_UPDATES_SDEPTH, NULL, CORE_HANDLE_NET_UPDATES_PRIORITY, &TaskLoopHandleNetUpdatesHandle));
-  configASSERT(pdPASS == xTaskCreate(TaskLoopHandleIncomingEvents, CORE_HANDLE_INCOMING_EVENTS_NAME, CORE_HANDLE_INCOMING_EVENTS_SDEPTH, NULL, CORE_HANDLE_INCOMING_EVENTS_PRIORITY, &TaskLoopHandleIncomingEventsHandle));
-  configASSERT(NULL != (TimerOneshotExecuteOutgoingCommandsHandle = xTimerCreate(CORE_EXECUTE_OUTGOING_COMMANDS_NAME, portMAX_DELAY, pdFALSE, NULL, TimerOneshotExecuteOutgoingCommands)));
+  configASSERT(pdPASS == xTaskCreate(TaskLoopWakeOnIncomingEvent, CORE_WAKE_ON_INCOMING_EVENT_NAME, CORE_WAKE_ON_INCOMING_EVENT_SDEPTH, NULL, CORE_WAKE_ON_INCOMING_EVENT_PRIORITY, &TaskLoopWakeOnIncomingEventHandle));
+  configASSERT(NULL != (TimerOneshotWakeOnScheduledCommandHandle = xTimerCreate(CORE_WAKE_ON_SCHEDULED_COMMAND_NAME, portMAX_DELAY, pdFALSE, NULL, TimerOneshotWakeOnScheduledCommand)));
 
 #ifdef DESSUITE_TRACE
   configASSERT(NULL != (TraceQueue = xQueueCreate(CORE_TRACE_QUEUE_SIZE, sizeof(struct Trace))));

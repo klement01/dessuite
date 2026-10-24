@@ -192,15 +192,14 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
     # Finalize.
     template_kv_pairs = [
         ("MODULE_INCLUDES", module_includes_cw),  # TODO
-        ("CORE_EVENT_QUEUE_SIZE", spec.core_settings.event_queue_size),
-        ("CORE_HANDLE_NET_UPDATES_NAME", f'"{spec.core_settings.task_handle_net_updates.name}"'),
-        ("CORE_HANDLE_NET_UPDATES_SDEPTH", spec.core_settings.task_handle_net_updates.stack_depth),
-        ("CORE_HANDLE_NET_UPDATES_PRIORITY", spec.core_settings.task_handle_net_updates.priority),
-        ("CORE_HANDLE_INCOMING_EVENTS_NAME", f'"{spec.core_settings.task_handle_incoming_events.name}"'),
-        ("CORE_HANDLE_INCOMING_EVENTS_SDEPTH", spec.core_settings.task_handle_incoming_events.stack_depth),
-        ("CORE_HANDLE_INCOMING_EVENTS_PRIORITY", spec.core_settings.task_handle_incoming_events.priority),
-        ("CORE_EXECUTE_OUTGOING_COMMANDS_NAME", f'"{spec.core_settings.task_execute_outgoing_commands.name}"'),
-        ("CORE_EXECUTE_OUTGOING_COMMANDS_PRIORITY", spec.core_settings.task_execute_outgoing_commands.priority),
+
+        ("CORE_INCOMING_EVENT_QUEUE_SIZE", spec.core_settings.incoming_event_queue_size),
+        ("CORE_WAKE_ON_INCOMING_EVENT_NAME", f'"{spec.core_settings.task_wake_on_incoming_event.name}"'),
+        ("CORE_WAKE_ON_INCOMING_EVENT_SDEPTH", spec.core_settings.task_wake_on_incoming_event.stack_depth),
+        ("CORE_WAKE_ON_INCOMING_EVENT_PRIORITY", spec.core_settings.task_wake_on_incoming_event.priority),
+        ("CORE_WAKE_ON_SCHEDULED_COMMAND_NAME", f'"{spec.core_settings.task_wake_on_scheduled_command.name}"'),
+        ("CORE_WAKE_ON_SCHEDULED_COMMAND_PRIORITY", spec.core_settings.task_wake_on_scheduled_command.priority),
+
         ("CORE_EVENT_COUNT", len(spec.ordered_events)),
         ("CORE_COMMAND_COUNT", len(spec.ordered_commands)),
         ("CORE_PLACE_COUNT", len(spec.ordered_places)),
@@ -208,13 +207,16 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         ("CORE_EVENT_DATA", event_transitions_cw),
         ("CORE_EVENT_TRANSITION_VECTOR", f",\n{' ' * INDENT}".join(event_transition_vector_entries)),
         ("CORE_INITIAL_MARKINGS", ", ".join(f"{{{spec.net.initial_state[p]}}}" for p in spec.ordered_places)),
+
         ("MODULE_DATA", module_data_cw),
         ("MODULE_VARIABLES", module_variables_cw),
         ("MODULE_FUNCTION_DEFINITIONS", module_function_definitions_cw),
         ("MODULE_INPUT_INTERFACE_FUNCTIONS", module_input_interface_functions_cw),
         ("MODULE_OUTPUT_INTERFACE_FUNCTIONS", module_output_interface_functions_cw),
+
         ("CORE_COMMAND_HANDLER_FUNCTIONS", command_handler_cw),
         ("CORE_COMMAND_HANDLER_VECTOR", f",\n{' ' * INDENT}".join(command_handler_vector_entries)),
+
         ("MODULE_INIT_FUNCTION_CALLS", module_init_function_calls_cw),
     ]
     src = template

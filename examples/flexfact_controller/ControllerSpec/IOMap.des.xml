@@ -1,7 +1,7 @@
 <Dessuite>
 	<Core>
 		<!-- Core settings -->
-		<EventQueueSize>32</EventQueueSize>
+		<IncomingEventQueueSize>32</IncomingEventQueueSize>
 	</Core>
 	<Modules>
 		<!-- Module settings -->
