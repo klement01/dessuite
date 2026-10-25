@@ -11,12 +11,15 @@
 	</Core>
 	<Modules>
 		<!-- Module settings -->
+		<CustomInclude>
+			<Include>"main.h"</Include>
+		</CustomInclude>
+		<ItmTrace/>
 		<HalGpio>
 			<PinSuffix>_Pin</PinSuffix>
 			<PortSuffix>_GPIO_Port</PortSuffix>
 		</HalGpio>
 		<HalUart>
-			<AutoEnumerate/>
 			<Handle>huart1</Handle>
 		</HalUart>
 	</Modules>

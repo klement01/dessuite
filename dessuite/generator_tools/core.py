@@ -55,15 +55,12 @@ class CoreTaskTraceLoopSettings(CoreTaskSettings):
 
 @dataclass
 class CoreSettings:
-    auto_enumerate_events: bool = True
     event_queue_size: int | str = 32
     task_event_loop: CoreTaskEventLoopSettings = field(default_factory=CoreTaskEventLoopSettings)
     task_schedule_command: CoreTaskScheduleCommandSettings = field(default_factory=CoreTaskScheduleCommandSettings)
     task_trace_loop: CoreTaskTraceLoopSettings = field(default_factory=CoreTaskTraceLoopSettings)
 
     def update_from_element_tree(self, core_settings: ElementTree.Element[str]):
-        if (m := core_settings.find("AutoEnumerate")) is not None:
-            self.auto_enumerate_events = key_is_truthy(m.text)
         if (m := core_settings.find("EventQueueSize")) is not None:
             self.event_queue_size = m.text  # pyright: ignore[reportAttributeAccessIssue]
         if (m := core_settings.find("Tasks/EventLoop")) is not None:
@@ -76,6 +73,3 @@ class CoreSettings:
                 self.task_trace_loop.enabled = key_is_truthy(me.text)
             if (me := m.find("TraceQueueSize")) is not None:
                 self.task_trace_loop.queue_size = me.text  # pyright: ignore[reportAttributeAccessIssue]
-
-        if not self.auto_enumerate_events:
-            raise ValueError("core: AutoEnumerate=False is not supported yet")

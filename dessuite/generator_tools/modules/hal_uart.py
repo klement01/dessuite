@@ -5,12 +5,10 @@ from csnake import CodeWriter, Function
 
 from dessuite.generator_tools import core
 from dessuite.generator_tools.modules import common
-from dessuite.generator_tools.util import key_is_truthy
 
 
 @dataclass
 class ModuleHalUartSettings:
-    auto_enumerate: bool = True
     handle: str | None = None
     message_size: int = 1
 
@@ -23,15 +21,11 @@ class ModuleHalUartSettings:
         return f"{self.handle}_transmit_buffer"
 
     def update_from_element_tree(self, et: ElementTree.Element[str]):
-        if (m := et.find("AutoEnumerate")) is not None:
-            self.auto_enumerate = key_is_truthy(m.text)
         if (m := et.find("Handle")) is not None:
             self.handle = m.text
         if (m := et.find("MessageSize")) is not None:
             self.message_size = int(m.text)  # pyright: ignore[reportArgumentType]
 
-        if not self.auto_enumerate:
-            raise ValueError("hal_uart: AutoEnumerate=False is not supported yet")
         if self.message_size != 1:
             raise ValueError("hal_uart: MessageSize!=1 is not supported yet")
 
