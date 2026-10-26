@@ -442,17 +442,10 @@ void TaskEventLoop(void*)
 
   for (;;)
   {
-    // Wait for an incoming event.
-    struct RichEvent event;
-    configASSERT(pdPASS == xQueuePeek(EventQueue, &event, portMAX_DELAY));
-
-    // Cancel pending command timer, if any.
-    configASSERT(pdPASS == xTimerStop(TimerScheduleCommandHandle, portMAX_DELAY));
-
-    // Process incoming events and execute commands until there are no new events and no immediate commands.
+    // Process queued events and execute commands until there are no new events and no immediate commands.
     for (;;)
     {
-      // Process incoming events.
+      // Process all queued events.
       {
         struct RichEvent event;
         while (pdPASS == xQueueReceive(EventQueue, &event, 0))
@@ -471,6 +464,13 @@ void TaskEventLoop(void*)
       struct RichCommand command;
       if (!NetGetNextEnabledCommand(xTaskGetTickCount(), &command))
         break;
+
+      // Return to event processing if a new event arrived while choosing command.
+      {
+        struct RichEvent event;
+        if (pdPASS == xQueuePeek(EventQueue, &event, 0))
+          continue;
+      }
 
       const TickType_t currentTick = xTaskGetTickCount();
       if (command.tick > currentTick)
@@ -497,6 +497,15 @@ void TaskEventLoop(void*)
         }
       }
     }
+
+    // Wait for an incoming event.
+    {
+      struct RichEvent event;
+      configASSERT(pdPASS == xQueuePeek(EventQueue, &event, portMAX_DELAY));
+    }
+
+    // Cancel pending command timer, if any.
+    configASSERT(pdPASS == xTimerStop(TimerScheduleCommandHandle, portMAX_DELAY));
   }
 }
 
