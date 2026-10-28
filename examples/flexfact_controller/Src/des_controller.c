@@ -406,14 +406,40 @@ const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
 struct Place corePlaces[CORE_PLACE_COUNT] = { {1}, {0}, {0}, {0}, {0}, {1}, {0}, {0}, {0}, {0}, {0} };
 TickType_t transitionEnabledTime[CORE_EVENT_COUNT] = { 0 };
 
-bool NetIsTransitionStructurallyEnabled(EventIdx_t eventIdx)
+enum EventStatus : uint8_t
+{
+  EVENT_STATUS_ENABLED,
+  EVENT_STATUS_DISABLED_STRUCTURALLY,
+  EVENT_STATUS_DISABLED_TOO_SOON,
+  EVENT_STATUS_DISABLED_TOO_LATE
+};
+
+enum EventStatus NetGetEventStatus(EventIdx_t eventIdx, TickType_t tick)
+{
+  if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
+    return EVENT_STATUS_DISABLED_STRUCTURALLY;
+
+  const TickType_t timeElapsed = tick - transitionEnabledTime[eventIdx];
+  if (timeElapsed < CORE_EVENT_TRANSITIONS[eventIdx].intervalLowerLimit)
+    return EVENT_STATUS_DISABLED_TOO_SOON;
+  if (CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit != portMAX_DELAY
+    && CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit < timeElapsed)
+    return EVENT_STATUS_DISABLED_TOO_LATE;
+
+  return EVENT_STATUS_ENABLED;
+}
+
+void NetUpdateTransitionEnabledTime(EventIdx_t eventIdx, TickType_t tick)
 {
   for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcsCount; ++idx)
   {
     const PlaceIdx_t arcPlace = CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcs[idx].placeIdx;
     const ArcWeight_t arcWeight = CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcs[idx].weight;
     if (corePlaces[arcPlace].markings >= arcWeight)
-      return false;
+    {
+      transitionEnabledTime[eventIdx] = portMAX_DELAY;
+      return;
+    }
   }
 
   for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].inputArcsCount; ++idx)
@@ -421,39 +447,21 @@ bool NetIsTransitionStructurallyEnabled(EventIdx_t eventIdx)
     const PlaceIdx_t arcPlace = CORE_EVENT_TRANSITIONS[eventIdx].inputArcs[idx].placeIdx;
     const ArcWeight_t arcWeight = CORE_EVENT_TRANSITIONS[eventIdx].inputArcs[idx].weight;
     if (arcWeight > corePlaces[arcPlace].markings)
-      return false;
+    {
+      transitionEnabledTime[eventIdx] = portMAX_DELAY;
+      return;
+    }
   }
 
-  return true;
-}
-
-bool NetIsTransitionEnabled(EventIdx_t eventIdx, TickType_t tick)
-{
   if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
-    return false;
-
-  const TickType_t timeElapsed = tick - transitionEnabledTime[eventIdx];
-  return (CORE_EVENT_TRANSITIONS[eventIdx].intervalLowerLimit <= timeElapsed)
-    && (timeElapsed <= CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit);
+    transitionEnabledTime[eventIdx] = tick;
 }
 
-void NetUpdateTransitionEnabledTime(EventIdx_t eventIdx, TickType_t tick)
+enum EventStatus NetTryUpdate(EventIdx_t eventIdx, TickType_t tick)
 {
-  if (NetIsTransitionStructurallyEnabled(eventIdx))
-  {
-    if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
-      transitionEnabledTime[eventIdx] = tick;
-  }
-  else
-  {
-    transitionEnabledTime[eventIdx] = portMAX_DELAY;
-  }
-}
-
-bool NetTryUpdate(EventIdx_t eventIdx, TickType_t tick)
-{
-  if (!NetIsTransitionEnabled(eventIdx, tick))
-    return false;
+  const enum EventStatus eventStatus = NetGetEventStatus(eventIdx, tick);
+  if (eventStatus != EVENT_STATUS_ENABLED)
+    return eventStatus;
 
   for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].deltaArcsCount; ++idx)
   {
@@ -465,7 +473,7 @@ bool NetTryUpdate(EventIdx_t eventIdx, TickType_t tick)
   for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].affectedTransitionsCount; ++idx)
     NetUpdateTransitionEnabledTime(CORE_EVENT_TRANSITIONS[eventIdx].affectedTransitions[idx], tick);
 
-  return true;
+  return EVENT_STATUS_ENABLED;
 }
 
 bool NetGetNextEnabledCommand(TickType_t currentTick, struct RichCommand *command)
@@ -503,14 +511,19 @@ typedef uint8_t TraceType_t;
 
 enum TraceType : TraceType_t
 {
-  TRACE_TYPE_TICK_RATE = (1),
-  TRACE_TYPE_NET_START_TICK = (2),
-  TRACE_TYPE_INCOMING_EVENT_ACCEPTED = (3),
-  TRACE_TYPE_INCOMING_EVENT_DROPPED = (4),
-  TRACE_TYPE_OUTGOING_COMMAND_QUEUED = (5),
-  TRACE_TYPE_OUTGOING_COMMAND_DROPPED = (6),
-  TRACE_TYPE_OUTGOING_COMMAND_STARTED = (7),
-  TRACE_TYPE_OUTGOING_COMMAND_FINISHED = (8)
+  TRACE_TYPE_TICK_RATE                             = (1),
+  TRACE_TYPE_NET_START_TICK                        = (2),
+  TRACE_TYPE_INCOMING_EVENT_ACCEPTED               = (3),
+  TRACE_TYPE_INCOMING_EVENT_DROPPED_STRUCTURALLY   = (4),
+  TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_SOON       = (5),
+  TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_LATE       = (6),
+  TRACE_TYPE_OUTGOING_COMMAND_ACCEPTED             = (7),
+  TRACE_TYPE_OUTGOING_COMMAND_DROPPED_STRUCTURALLY = (8),
+  TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_SOON     = (9),
+  TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_LATE     = (10),
+  TRACE_TYPE_OUTGOING_COMMAND_QUEUED               = (12),
+  TRACE_TYPE_OUTGOING_COMMAND_STARTED              = (13),
+  TRACE_TYPE_OUTGOING_COMMAND_FINISHED             = (14)
 };
 
 struct Trace
@@ -544,9 +557,14 @@ void TaskTraceLoop(void*)
         printf("%lu",  trace.data.startTick);
         break;
       case TRACE_TYPE_INCOMING_EVENT_ACCEPTED:
-      case TRACE_TYPE_INCOMING_EVENT_DROPPED:
+      case TRACE_TYPE_INCOMING_EVENT_DROPPED_STRUCTURALLY:
+      case TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_SOON:
+      case TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_LATE:
+      case TRACE_TYPE_OUTGOING_COMMAND_ACCEPTED:
+      case TRACE_TYPE_OUTGOING_COMMAND_DROPPED_STRUCTURALLY:
+      case TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_SOON:
+      case TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_LATE:
       case TRACE_TYPE_OUTGOING_COMMAND_QUEUED:
-      case TRACE_TYPE_OUTGOING_COMMAND_DROPPED:
       case TRACE_TYPE_OUTGOING_COMMAND_STARTED:
       case TRACE_TYPE_OUTGOING_COMMAND_FINISHED:
         printf("%lu\t%u", trace.data.event.tick, trace.data.event.idx);
@@ -578,25 +596,59 @@ static inline void TraceNetStartTick(TickType_t startTick)
   configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
 }
 
-static inline void TraceIncomingEventAccepted(EventIdx_t eventIdx, TickType_t eventTick)
+static inline void TraceNetUpdate(EventIdx_t eventIdx, TickType_t eventTick, bool isCommand, enum EventStatus eventStatus)
 {
-  struct Trace trace = {
-    .traceTick = xTaskGetTickCount(),
-    .traceType = TRACE_TYPE_INCOMING_EVENT_ACCEPTED,
-    .data.event.idx = eventIdx,
-    .data.event.tick = eventTick
-  };
-  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
-}
+  const TickType_t traceTick = xTaskGetTickCount();
+  TraceType_t traceType;
 
-static inline void TraceIncomingEventDropped(EventIdx_t eventIdx, TickType_t eventTick)
-{
-  struct Trace trace = {
-    .traceTick = xTaskGetTickCount(),
-    .traceType = TRACE_TYPE_INCOMING_EVENT_DROPPED,
+  if (isCommand)
+  {
+    switch (eventStatus)
+    {
+      case EVENT_STATUS_ENABLED:
+        traceType = TRACE_TYPE_OUTGOING_COMMAND_ACCEPTED;
+        break;
+      case EVENT_STATUS_DISABLED_STRUCTURALLY:
+        traceType = TRACE_TYPE_OUTGOING_COMMAND_DROPPED_STRUCTURALLY;
+        break;
+      case EVENT_STATUS_DISABLED_TOO_SOON:
+        traceType = TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_SOON;
+        break;
+      case EVENT_STATUS_DISABLED_TOO_LATE:
+        traceType = TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_LATE;
+        break;
+      default:
+        configASSERT(false);
+    }
+  }
+  else
+  {
+    switch (eventStatus)
+    {
+      case EVENT_STATUS_ENABLED:
+        traceType = TRACE_TYPE_INCOMING_EVENT_ACCEPTED;
+        break;
+      case EVENT_STATUS_DISABLED_STRUCTURALLY:
+        traceType = TRACE_TYPE_INCOMING_EVENT_DROPPED_STRUCTURALLY;
+        break;
+      case EVENT_STATUS_DISABLED_TOO_SOON:
+        traceType = TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_SOON;
+        break;
+      case EVENT_STATUS_DISABLED_TOO_LATE:
+        traceType = TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_LATE;
+        break;
+      default:
+        configASSERT(false);
+    }
+  }
+
+  const struct Trace trace = {
+    .traceTick = traceTick,
+    .traceType = traceType,
     .data.event.idx = eventIdx,
     .data.event.tick = eventTick
   };
+
   configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
 }
 
@@ -605,17 +657,6 @@ static inline void TraceOutgoingCommandQueued(CommandIdx_t commandIdx, TickType_
   struct Trace trace = {
     .traceTick = xTaskGetTickCount(),
     .traceType = TRACE_TYPE_OUTGOING_COMMAND_QUEUED,
-    .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
-    .data.event.tick = eventTick
-  };
-  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
-}
-
-static inline void TraceOutgoingCommandDropped(CommandIdx_t commandIdx, TickType_t eventTick)
-{
-  struct Trace trace = {
-    .traceTick = xTaskGetTickCount(),
-    .traceType = TRACE_TYPE_OUTGOING_COMMAND_DROPPED,
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick
   };
@@ -648,10 +689,8 @@ static inline void TraceOutgoingCommandFinished(CommandIdx_t commandIdx, TickTyp
 
 #define TraceTickRate(...) ((void)0)
 #define TraceNetStartTick(...) ((void)0)
-#define TraceIncomingEventAccepted(...) ((void)0)
-#define TraceIncomingEventDropped(...) ((void)0)
+#define TraceNetUpdate(...) ((void)0)
 #define TraceOutgoingCommandQueued(...) ((void)0)
-#define TraceOutgoingCommandDropped(...) ((void)0)
 #define TraceOutgoingCommandStarted(...) ((void)0)
 #define TraceOutgoingCommandFinished(...) ((void)0)
 
@@ -691,10 +730,8 @@ void TaskEventLoop(void*)
           if (event.idx == EVENT_SCHEDULED_COMMAND)
             continue;
 
-          if (NetTryUpdate(event.idx, event.tick))
-            TraceIncomingEventAccepted(event.idx, event.tick);
-          else
-            TraceIncomingEventDropped(event.idx, event.tick);
+          const enum EventStatus eventStatus = NetTryUpdate(event.idx, event.tick);
+          TraceNetUpdate(event.idx, event.tick, false, eventStatus);
         }
       }
 
@@ -723,15 +760,13 @@ void TaskEventLoop(void*)
       else
       {
         // Command is already enabled: execute immediately.
-        if (NetTryUpdate(CORE_COMMANDS[command.idx].eventIdx, xTaskGetTickCount()))
+        const enum EventStatus eventStatus = NetTryUpdate(CORE_COMMANDS[command.idx].eventIdx, currentTick);
+        TraceNetUpdate(CORE_COMMANDS[command.idx].eventIdx, currentTick, true, eventStatus);
+        if (eventStatus == EVENT_STATUS_ENABLED)
         {
           TraceOutgoingCommandStarted(command.idx, command.tick);
           CORE_COMMANDS[command.idx].handler();
           TraceOutgoingCommandFinished(command.idx, command.tick);
-        }
-        else
-        {
-          TraceOutgoingCommandDropped(command.idx, command.tick);
         }
       }
     }
