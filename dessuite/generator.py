@@ -7,6 +7,7 @@ from csnake import CodeWriter, Function, Variable
 import dessuite.generator_tools.c as c_files
 from dessuite.generator_tools import core, modules
 from dessuite.model import des, petri
+from dessuite.trace import TraceType
 
 
 @dataclass
@@ -93,6 +94,16 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
             for p_idx, p in enumerate(spec.ordered_places)
             if (w := transition.output_weights[p] - transition.input_weights[p]) != 0
         }
+        affected_transitions = [
+            e.event_idx
+            for e in spec.ordered_events
+            if (net.transitions[core_event.event].input_weights | net.transitions[core_event.event].output_weights)
+            & (
+                net.transitions[e.event].input_weights
+                | net.transitions[e.event].read_weights
+                | net.transitions[e.event].inhibitor_weights
+            )
+        ]
 
         inhibitor_arcs_var = Variable(
             f"{core_event.event_name}_INHIBITOR_ARCS",
@@ -115,9 +126,18 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
             value=delta_arcs.items(),  # type: ignore
             array=len(delta_arcs),  # type: ignore
         )
+        affected_transitions_var = Variable(
+            f"{core_event.event_name}_AFFECTED_TRANSITIONS",
+            primitive="EventIdx_t",
+            qualifiers="const",
+            value=affected_transitions,  # type: ignore
+            array=len(affected_transitions),  # type: ignore
+        )
         event_transitions_cw.add_variable_initialization(inhibitor_arcs_var)
         event_transitions_cw.add_variable_initialization(input_arcs_var)
         event_transitions_cw.add_variable_initialization(delta_arcs_var)
+        event_transitions_cw.add_variable_initialization(affected_transitions_var)
+        event_transitions_cw.add_line()
         event_transition_vector_entries.append(
             "{"
             + ", ".join(
@@ -126,9 +146,15 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
                     inhibitor_arcs_var.array,
                     input_arcs_var.array,
                     delta_arcs_var.array,
+                    affected_transitions_var.array,
                     inhibitor_arcs_var.name,
                     input_arcs_var.name,
                     delta_arcs_var.name,
+                    affected_transitions_var.name,
+                    f"pdMS_TO_TICKS({round(transition.interval.lower_limit.total_seconds() * 1e3)}U)",
+                    "portMAX_DELAY"
+                    if transition.interval.upper_limit is None
+                    else f"pdMS_TO_TICKS({round(transition.interval.upper_limit.total_seconds() * 1e3)}U)",
                 )
             )
             + "}"
@@ -166,17 +192,25 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
 
     # Finalize.
     template_kv_pairs = [
+        # Module includes and defines.
         ("MODULE_INCLUDES", module_includes_cw),  # TODO
+        # User parameters.
+        ("CORE_ENABLE_TRACE", "true" if spec.core_settings.task_trace_loop.enabled else "false"),
+        (
+            "CORE_ENABLE_CUSTOM_TRACE_CLOCK",
+            "true" if spec.core_settings.task_trace_loop.custom_trace_clock else "false",
+        ),
         ("CORE_EVENT_QUEUE_SIZE", spec.core_settings.event_queue_size),
-        ("CORE_EXECUTE_COMMAND_NAME", f'"{spec.core_settings.task_execute_command.name}"'),
-        ("CORE_EXECUTE_COMMAND_SDEPTH", spec.core_settings.task_execute_command.stack_depth),
-        ("CORE_EXECUTE_COMMAND_PRIORITY", spec.core_settings.task_execute_command.priority),
-        ("CORE_UPDATE_STATE_NAME", f'"{spec.core_settings.task_update_state.name}"'),
-        ("CORE_UPDATE_STATE_SDEPTH", spec.core_settings.task_update_state.stack_depth),
-        ("CORE_UPDATE_STATE_PRIORITY", spec.core_settings.task_update_state.priority),
-        ("CORE_SET_COMMAND_NAME", f'"{spec.core_settings.task_set_command.name}"'),
-        ("CORE_SET_COMMAND_SDEPTH", spec.core_settings.task_set_command.stack_depth),
-        ("CORE_SET_COMMAND_PRIORITY", spec.core_settings.task_set_command.priority),
+        ("CORE_EVENT_LOOP_TASK_NAME", f'"{spec.core_settings.task_event_loop.name}"'),
+        ("CORE_EVENT_LOOP_TASK_SDEPTH", spec.core_settings.task_event_loop.stack_depth),
+        ("CORE_EVENT_LOOP_TASK_PRIORITY", spec.core_settings.task_event_loop.priority),
+        ("CORE_SCHEDULE_COMMAND_TASK_NAME", f'"{spec.core_settings.task_schedule_command.name}"'),
+        ("CORE_SCHEDULE_COMMAND_TASK_PRIORITY", spec.core_settings.task_schedule_command.priority),
+        ("CORE_TRACE_QUEUE_SIZE", spec.core_settings.task_trace_loop.queue_size),
+        ("CORE_TRACE_LOOP_TASK_NAME", f'"{spec.core_settings.task_trace_loop.name}"'),
+        ("CORE_TRACE_LOOP_TASK_SDEPTH", spec.core_settings.task_trace_loop.stack_depth),
+        ("CORE_TRACE_LOOP_TASK_PRIORITY", spec.core_settings.task_trace_loop.priority),
+        # Petri net definition.
         ("CORE_EVENT_COUNT", len(spec.ordered_events)),
         ("CORE_COMMAND_COUNT", len(spec.ordered_commands)),
         ("CORE_PLACE_COUNT", len(spec.ordered_places)),
@@ -184,13 +218,30 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         ("CORE_EVENT_DATA", event_transitions_cw),
         ("CORE_EVENT_TRANSITION_VECTOR", f",\n{' ' * INDENT}".join(event_transition_vector_entries)),
         ("CORE_INITIAL_MARKINGS", ", ".join(f"{{{spec.net.initial_state[p]}}}" for p in spec.ordered_places)),
+        # Module data.
         ("MODULE_DATA", module_data_cw),
         ("MODULE_VARIABLES", module_variables_cw),
         ("MODULE_FUNCTION_DEFINITIONS", module_function_definitions_cw),
         ("MODULE_INPUT_INTERFACE_FUNCTIONS", module_input_interface_functions_cw),
         ("MODULE_OUTPUT_INTERFACE_FUNCTIONS", module_output_interface_functions_cw),
+        # Trace data.
+        ("TRACE_TYPE_TICK_RATE", TraceType.TICK_RATE),
+        ("TRACE_TYPE_NET_START_TICK", TraceType.NET_START_TICK),
+        ("TRACE_TYPE_INCOMING_EVENT_ACCEPTED", TraceType.INCOMING_EVENT_ACCEPTED),
+        ("TRACE_TYPE_INCOMING_EVENT_DROPPED_STRUCTURALLY", TraceType.INCOMING_EVENT_DROPPED_STRUCTURALLY),
+        ("TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_SOON", TraceType.INCOMING_EVENT_DROPPED_TOO_SOON),
+        ("TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_LATE", TraceType.INCOMING_EVENT_DROPPED_TOO_LATE),
+        ("TRACE_TYPE_OUTGOING_COMMAND_ACCEPTED", TraceType.OUTGOING_COMMAND_ACCEPTED),
+        ("TRACE_TYPE_OUTGOING_COMMAND_DROPPED_STRUCTURALLY", TraceType.OUTGOING_COMMAND_DROPPED_STRUCTURALLY),
+        ("TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_SOON", TraceType.OUTGOING_COMMAND_DROPPED_TOO_SOON),
+        ("TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_LATE", TraceType.OUTGOING_COMMAND_DROPPED_TOO_LATE),
+        ("TRACE_TYPE_OUTGOING_COMMAND_QUEUED", TraceType.OUTGOING_COMMAND_QUEUED),
+        ("TRACE_TYPE_OUTGOING_COMMAND_STARTED", TraceType.OUTGOING_COMMAND_STARTED),
+        ("TRACE_TYPE_OUTGOING_COMMAND_FINISHED", TraceType.OUTGOING_COMMAND_FINISHED),
+        # Core data.
         ("CORE_COMMAND_HANDLER_FUNCTIONS", command_handler_cw),
         ("CORE_COMMAND_HANDLER_VECTOR", f",\n{' ' * INDENT}".join(command_handler_vector_entries)),
+        # Module initialization.
         ("MODULE_INIT_FUNCTION_CALLS", module_init_function_calls_cw),
     ]
     src = template

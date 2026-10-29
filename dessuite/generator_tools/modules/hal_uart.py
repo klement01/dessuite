@@ -5,12 +5,10 @@ from csnake import CodeWriter, Function
 
 from dessuite.generator_tools import core
 from dessuite.generator_tools.modules import common
-from dessuite.generator_tools.util import key_is_truthy
 
 
 @dataclass
 class ModuleHalUartSettings:
-    auto_enumerate: bool = True
     handle: str | None = None
     message_size: int = 1
 
@@ -23,15 +21,11 @@ class ModuleHalUartSettings:
         return f"{self.handle}_transmit_buffer"
 
     def update_from_element_tree(self, et: ElementTree.Element[str]):
-        if (m := et.find("AutoEnumerate")) is not None:
-            self.auto_enumerate = key_is_truthy(m.text)
         if (m := et.find("Handle")) is not None:
             self.handle = m.text
         if (m := et.find("MessageSize")) is not None:
             self.message_size = int(m.text)  # pyright: ignore[reportArgumentType]
 
-        if not self.auto_enumerate:
-            raise ValueError("hal_uart: AutoEnumerate=False is not supported yet")
         if self.message_size != 1:
             raise ValueError("hal_uart: MessageSize!=1 is not supported yet")
 
@@ -78,16 +72,16 @@ class ModuleHalUart(common.GeneratorModule):
         writer.add_line("void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)")
         writer.open_brace()
 
+        writer.add_line("const TickType_t tick = xTaskGetTickCountFromISR();")
         writer.add_line("BaseType_t xHigherPriorityTaskWoken = pdFALSE;")
-        writer.add_line("EventIdx_t eventIdx;")
+        writer.add_line(f"if (huart != &{self.settings.handle}) portYIELD_FROM_ISR(xHigherPriorityTaskWoken);")
         writer.add_line(f"switch ({self.settings.recv_buffer})")
         writer.open_brace()
 
         for value, core_event in self.recv_triggers.items():
             writer.add_line(f"case {value}:")
             writer.indent()
-            writer.add_line(f"eventIdx = {core_event.event_name};")
-            writer.add_line("xQueueSendToBackFromISR(PendingEventsQueue, &eventIdx, &xHigherPriorityTaskWoken);")
+            writer.add_line(f"NewIncomingEventISR({core_event.event_name}, tick, &xHigherPriorityTaskWoken);")
             writer.add_switch_break()
 
         writer.close_brace()

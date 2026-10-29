@@ -1,4 +1,5 @@
 import dessuite.generator_tools.modules.common
+import dessuite.generator_tools.modules.custom_include
 import dessuite.generator_tools.modules.hal_gpio
 import dessuite.generator_tools.modules.hal_uart
 
@@ -11,6 +12,7 @@ def get_module_from_name(name: str) -> type[dessuite.generator_tools.modules.com
     MODULE_DB = {
         "HalGpio": dessuite.generator_tools.modules.hal_gpio.ModuleHalGpio,
         "HalUart": dessuite.generator_tools.modules.hal_uart.ModuleHalUart,
+        "CustomInclude": dessuite.generator_tools.modules.custom_include.ModuleCustomInclude,
     }
     try:
         m = MODULE_DB[name]

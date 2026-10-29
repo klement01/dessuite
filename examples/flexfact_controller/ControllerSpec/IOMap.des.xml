@@ -2,15 +2,25 @@
 	<Core>
 		<!-- Core settings -->
 		<EventQueueSize>32</EventQueueSize>
+		<Tasks>
+			<TraceLoop>
+				<Enabled>True</Enabled>
+				<TraceQueueSize>32</TraceQueueSize>
+				<CustomTraceClock>True</CustomTraceClock>
+			</TraceLoop>
+		</Tasks>
 	</Core>
 	<Modules>
 		<!-- Module settings -->
+		<CustomInclude>
+			<Include>"main.h"</Include>
+			<Include>"trace_tick.h"</Include>
+		</CustomInclude>
 		<HalGpio>
 			<PinSuffix>_Pin</PinSuffix>
 			<PortSuffix>_GPIO_Port</PortSuffix>
 		</HalGpio>
 		<HalUart>
-			<AutoEnumerate/>
 			<Handle>huart1</Handle>
 		</HalUart>
 	</Modules>
@@ -78,7 +88,7 @@
 			<Controllable/>
 			<Actions>
 				<HalGpio>
-					<Reset>LED_RED_1</Reset>
+					<Reset>LED_GREEN_1</Reset>
 				</HalGpio>
 				<HalUart>
 					<Transmit/>
@@ -90,7 +100,7 @@
 			<Controllable/>
 			<Actions>
 				<HalGpio>
-					<Set>LED_RED_1</Set>
+					<Set>LED_GREEN_1</Set>
 				</HalGpio>
 				<HalUart>
 					<Transmit/>
@@ -102,7 +112,7 @@
 			<Controllable/>
 			<Actions>
 				<HalGpio>
-					<Reset>LED_RED_2</Reset>
+					<Reset>LED_GREEN_2</Reset>
 				</HalGpio>
 				<HalUart>
 					<Transmit/>
@@ -114,7 +124,31 @@
 			<Controllable/>
 			<Actions>
 				<HalGpio>
-					<Set>LED_RED_2</Set>
+					<Set>LED_GREEN_2</Set>
+				</HalGpio>
+				<HalUart>
+					<Transmit/>
+				</HalUart>
+			</Actions>
+		</Event>
+		<Event>
+			<Name>op_l1on</Name>
+			<Controllable/>
+			<Actions>
+				<HalGpio>
+					<Reset>LED_RED_1</Reset>
+				</HalGpio>
+				<HalUart>
+					<Transmit/>
+				</HalUart>
+			</Actions>
+		</Event>
+		<Event>
+			<Name>op_l1off</Name>
+			<Controllable/>
+			<Actions>
+				<HalGpio>
+					<Set>LED_RED_1</Set>
 				</HalGpio>
 				<HalUart>
 					<Transmit/>

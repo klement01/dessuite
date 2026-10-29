@@ -30,9 +30,9 @@ def __main__() -> int:
         "modbus_device_file", type=Path, help="Modbus Device file (.dev) exported from FlexFact"
     )
     parser_controller.add_argument(
-        "net_file",
+        "model_file",
         type=Path,
-        help="single Tina Toolbox net file (.net)",
+        help="Tina Toolbox textual format file (.net) representing a Petri Net",
     )
     parser_controller.set_defaults(func=parser_time_controller_handler)
 
@@ -53,13 +53,13 @@ def __main__() -> int:
         name="gateway", help="act as gateway between FlexFact and a controller generated with generator"
     )
     parser_gateway.add_argument(
-        "model_file", type=Path, help="Tina Toolbox textual format file (.net) representing a Petri Net"
-    )
-    parser_gateway.add_argument(
         "modbus_device_file", type=Path, help="Modbus Device file (.dev) exported from FlexFact"
     )
+    parser_gateway.add_argument(
+        "model_file", type=Path, help="Tina Toolbox textual format file (.net) representing a Petri Net"
+    )
     parser_gateway.add_argument("spec_file", type=Path, help="dessuite specification file (.des.xml)")
-    parser_gateway.add_argument("port", help="port")
+    parser_gateway.add_argument("port", help="COM/serial port")
     parser_gateway.add_argument("--baud", default=115200, type=int, help="baud rate")
     parser_gateway.set_defaults(func=parser_gateway_handler)
 
@@ -76,8 +76,8 @@ def parser_controller_handler(args: argparse.Namespace) -> int:
 
 def parser_time_controller_handler(args: argparse.Namespace) -> int:
     modbus_device_file: Path = args.modbus_device_file
-    net_file: Path = args.net_file
-    control.time_control_loop(modbus_device_file, net_file)
+    model_file: Path = args.model_file
+    control.time_control_loop(modbus_device_file, model_file)
     return 0
 
 

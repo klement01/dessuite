@@ -16,7 +16,7 @@ class CoreEvent:
 class CoreTaskSettings:
     internal_name: str
     priority: str | int
-    stack_depth: str | int = "configMINIMAL_STACK_SIZE"
+    stack_depth: str | int | None = "configMINIMAL_STACK_SIZE"
     _name: str | None = None
 
     @property
@@ -33,42 +33,46 @@ class CoreTaskSettings:
 
 
 @dataclass
-class CoreTaskExecuteCommandSettings(CoreTaskSettings):
-    internal_name: str = "ExecuteCommand"
-    priority: str | int = 12
+class CoreTaskEventLoopSettings(CoreTaskSettings):
+    internal_name: str = "DessuiteEventLoop"
+    priority: str | int = "configMAX_PRIORITIES - 1"
 
 
 @dataclass
-class CoreTaskUpdateStateSettings(CoreTaskSettings):
-    internal_name: str = "UpdateState"
-    priority: str | int = 11
+class CoreTaskScheduleCommandSettings(CoreTaskSettings):
+    internal_name: str = "DessuiteScheduleCommand"
+    priority: str | int = "configMAX_PRIORITIES - 2"
+    stack_depth: str | int | None = None
 
 
 @dataclass
-class CoreTaskSetCommandSettings(CoreTaskSettings):
-    internal_name: str = "SetCommand"
-    priority: str | int = 10
+class CoreTaskTraceLoopSettings(CoreTaskSettings):
+    internal_name: str = "DessuiteTraceLoop"
+    priority: str | int = 1
+    enabled: bool = False
+    queue_size: int | str = 32
+    custom_trace_clock: bool = False
 
 
 @dataclass
 class CoreSettings:
-    auto_enumerate_events: bool = True
     event_queue_size: int | str = 32
-    task_execute_command: CoreTaskExecuteCommandSettings = field(default_factory=CoreTaskExecuteCommandSettings)
-    task_update_state: CoreTaskUpdateStateSettings = field(default_factory=CoreTaskUpdateStateSettings)
-    task_set_command: CoreTaskSetCommandSettings = field(default_factory=CoreTaskSetCommandSettings)
+    task_event_loop: CoreTaskEventLoopSettings = field(default_factory=CoreTaskEventLoopSettings)
+    task_schedule_command: CoreTaskScheduleCommandSettings = field(default_factory=CoreTaskScheduleCommandSettings)
+    task_trace_loop: CoreTaskTraceLoopSettings = field(default_factory=CoreTaskTraceLoopSettings)
 
     def update_from_element_tree(self, core_settings: ElementTree.Element[str]):
-        if (m := core_settings.find("AutoEnumerate")) is not None:
-            self.auto_enumerate_events = key_is_truthy(m.text)
         if (m := core_settings.find("EventQueueSize")) is not None:
             self.event_queue_size = m.text  # pyright: ignore[reportAttributeAccessIssue]
-        if (m := core_settings.find("Tasks/ExecuteCommand")) is not None:
-            self.task_execute_command.update_from_element_tree(m)
-        if (m := core_settings.find("Tasks/UpdateState")) is not None:
-            self.task_update_state.update_from_element_tree(m)
-        if (m := core_settings.find("Tasks/SetCommand")) is not None:
-            self.task_set_command.update_from_element_tree(m)
-
-        if not self.auto_enumerate_events:
-            raise ValueError("core: AutoEnumerate=False is not supported yet")
+        if (m := core_settings.find("Tasks/EventLoop")) is not None:
+            self.task_event_loop.update_from_element_tree(m)
+        if (m := core_settings.find("Tasks/ScheduleCommand")) is not None:
+            self.task_schedule_command.update_from_element_tree(m)
+        if (m := core_settings.find("Tasks/TraceLoop")) is not None:
+            self.task_trace_loop.update_from_element_tree(m)
+            if (me := m.find("Enabled")) is not None:
+                self.task_trace_loop.enabled = key_is_truthy(me.text)
+            if (me := m.find("TraceQueueSize")) is not None:
+                self.task_trace_loop.queue_size = me.text  # pyright: ignore[reportAttributeAccessIssue]
+            if (me := m.find("CustomTraceClock")) is not None:
+                self.task_trace_loop.custom_trace_clock = key_is_truthy(me.text)

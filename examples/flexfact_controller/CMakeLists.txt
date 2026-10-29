@@ -40,6 +40,17 @@ add_subdirectory(cmake/stm32cubemx)
 # Commands for building the des_controller files
 add_custom_command(
     OUTPUT
+        ${CMAKE_SOURCE_DIR}/ControllerSpec/Controller.net
+    DEPENDS
+        ${CMAKE_SOURCE_DIR}/ControllerSpec/Controller.ndr
+    COMMAND
+        ndrio -NDR -net -textify
+        ${CMAKE_SOURCE_DIR}/ControllerSpec/Controller.ndr
+        ${CMAKE_SOURCE_DIR}/ControllerSpec/Controller.net
+    VERBATIM
+)
+add_custom_command(
+    OUTPUT
         ${CMAKE_SOURCE_DIR}/Src/des_controller.c
         ${CMAKE_SOURCE_DIR}/Inc/des_controller.h
     DEPENDS
@@ -52,7 +63,7 @@ add_custom_command(
         ${CMAKE_SOURCE_DIR}/Src/des_controller.c
         ${CMAKE_SOURCE_DIR}/Inc/des_controller.h
     VERBATIM
-) 
+)
 add_custom_target(des_controller_lib ALL DEPENDS Src/des_controller.c Inc/des_controller.h)
 add_dependencies(${CMAKE_PROJECT_NAME} des_controller_lib)
 
