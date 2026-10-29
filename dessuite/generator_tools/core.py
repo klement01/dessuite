@@ -51,6 +51,7 @@ class CoreTaskTraceLoopSettings(CoreTaskSettings):
     priority: str | int = 1
     enabled: bool = False
     queue_size: int | str = 32
+    custom_trace_clock: bool = False
 
 
 @dataclass
@@ -73,3 +74,5 @@ class CoreSettings:
                 self.task_trace_loop.enabled = key_is_truthy(me.text)
             if (me := m.find("TraceQueueSize")) is not None:
                 self.task_trace_loop.queue_size = me.text  # pyright: ignore[reportAttributeAccessIssue]
+            if (me := m.find("CustomTraceClock")) is not None:
+                self.task_trace_loop.custom_trace_clock = key_is_truthy(me.text)

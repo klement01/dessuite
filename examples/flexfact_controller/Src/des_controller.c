@@ -17,6 +17,10 @@
 #define CORE_ENABLE_TRACE
 #endif
 
+#if (true)
+#define CORE_ENABLE_CUSTOM_TRACE_CLOCK
+#endif
+
 #ifdef CORE_ENABLE_TRACE
 #include <stdio.h>
 #endif
@@ -24,6 +28,7 @@
 /** Module includes and defines. **/
 
 #include "main.h"
+#include "trace_tick.h"
 
 
 /** Core data (defines, types and constants). **/
@@ -339,10 +344,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 /** Module output interface functions. **/
 
-int __io_putchar(int ch) {
-  ITM_SendChar(ch);
-  return ch;
-}
+
 
 
 /** Core command handler. */
@@ -507,6 +509,15 @@ bool NetGetNextEnabledCommand(TickType_t currentTick, struct RichCommand *comman
 
 #ifdef CORE_ENABLE_TRACE
 
+#ifndef CORE_ENABLE_CUSTOM_TRACE_CLOCK
+#define TRACE_TICK_RATE configTICK_RATE_HZ
+typedef uint32_t TraceTickType_t;
+static inline TraceTickType_t GetTraceTick()
+{
+  return (TraceTickType_t)xTaskGetTickCount();
+}
+#endif
+
 typedef uint8_t TraceType_t;
 
 enum TraceType : TraceType_t
@@ -528,7 +539,7 @@ enum TraceType : TraceType_t
 
 struct Trace
 {
-  TickType_t traceTick;
+  TraceTickType_t traceTick;
   TraceType_t traceType;
   union {
     struct RichEvent event;
@@ -551,7 +562,7 @@ void TaskTraceLoop(void*)
     switch (trace.traceType)
     {
       case TRACE_TYPE_TICK_RATE:
-        printf("%lu", configTICK_RATE_HZ);
+        printf("%lu\t%lu", (TraceTickType_t)configTICK_RATE_HZ, (TraceTickType_t)TRACE_TICK_RATE);
         break;
       case TRACE_TYPE_NET_START_TICK:
         printf("%lu",  trace.data.startTick);
@@ -580,7 +591,7 @@ void TaskTraceLoop(void*)
 static inline void TraceTickRate()
 {
   struct Trace trace = {
-    .traceTick = xTaskGetTickCount(),
+    .traceTick = GetTraceTick(),
     .traceType = TRACE_TYPE_TICK_RATE 
   };
   configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
@@ -589,7 +600,7 @@ static inline void TraceTickRate()
 static inline void TraceNetStartTick(TickType_t startTick)
 {
   struct Trace trace = {
-    .traceTick = xTaskGetTickCount(),
+    .traceTick = GetTraceTick(),
     .traceType = TRACE_TYPE_NET_START_TICK,
     .data.startTick = startTick
   };
@@ -598,7 +609,7 @@ static inline void TraceNetStartTick(TickType_t startTick)
 
 static inline void TraceNetUpdate(EventIdx_t eventIdx, TickType_t eventTick, bool isCommand, enum EventStatus eventStatus)
 {
-  const TickType_t traceTick = xTaskGetTickCount();
+  const TraceTickType_t traceTick = GetTraceTick();
   TraceType_t traceType;
 
   if (isCommand)
@@ -655,7 +666,7 @@ static inline void TraceNetUpdate(EventIdx_t eventIdx, TickType_t eventTick, boo
 static inline void TraceOutgoingCommandQueued(CommandIdx_t commandIdx, TickType_t eventTick)
 {
   struct Trace trace = {
-    .traceTick = xTaskGetTickCount(),
+    .traceTick = GetTraceTick(),
     .traceType = TRACE_TYPE_OUTGOING_COMMAND_QUEUED,
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick
@@ -666,7 +677,7 @@ static inline void TraceOutgoingCommandQueued(CommandIdx_t commandIdx, TickType_
 static inline void TraceOutgoingCommandStarted(CommandIdx_t commandIdx, TickType_t eventTick)
 {
   struct Trace trace = {
-    .traceTick = xTaskGetTickCount(),
+    .traceTick = GetTraceTick(),
     .traceType = TRACE_TYPE_OUTGOING_COMMAND_STARTED,
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick
@@ -677,7 +688,7 @@ static inline void TraceOutgoingCommandStarted(CommandIdx_t commandIdx, TickType
 static inline void TraceOutgoingCommandFinished(CommandIdx_t commandIdx, TickType_t eventTick)
 {
   struct Trace trace = {
-    .traceTick = xTaskGetTickCount(),
+    .traceTick = GetTraceTick(),
     .traceType = TRACE_TYPE_OUTGOING_COMMAND_FINISHED,
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick

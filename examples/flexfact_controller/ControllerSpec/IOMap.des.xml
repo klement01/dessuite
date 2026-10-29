@@ -6,6 +6,7 @@
 			<TraceLoop>
 				<Enabled>True</Enabled>
 				<TraceQueueSize>32</TraceQueueSize>
+				<CustomTraceClock>True</CustomTraceClock>
 			</TraceLoop>
 		</Tasks>
 	</Core>
@@ -13,8 +14,8 @@
 		<!-- Module settings -->
 		<CustomInclude>
 			<Include>"main.h"</Include>
+			<Include>"trace_tick.h"</Include>
 		</CustomInclude>
-		<ItmTrace/>
 		<HalGpio>
 			<PinSuffix>_Pin</PinSuffix>
 			<PortSuffix>_GPIO_Port</PortSuffix>

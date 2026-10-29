@@ -195,13 +195,17 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         # Module includes and defines.
         ("MODULE_INCLUDES", module_includes_cw),  # TODO
         # User parameters.
+        ("CORE_ENABLE_TRACE", "true" if spec.core_settings.task_trace_loop.enabled else "false"),
+        (
+            "CORE_ENABLE_CUSTOM_TRACE_CLOCK",
+            "true" if spec.core_settings.task_trace_loop.custom_trace_clock else "false",
+        ),
         ("CORE_EVENT_QUEUE_SIZE", spec.core_settings.event_queue_size),
         ("CORE_EVENT_LOOP_TASK_NAME", f'"{spec.core_settings.task_event_loop.name}"'),
         ("CORE_EVENT_LOOP_TASK_SDEPTH", spec.core_settings.task_event_loop.stack_depth),
         ("CORE_EVENT_LOOP_TASK_PRIORITY", spec.core_settings.task_event_loop.priority),
         ("CORE_SCHEDULE_COMMAND_TASK_NAME", f'"{spec.core_settings.task_schedule_command.name}"'),
         ("CORE_SCHEDULE_COMMAND_TASK_PRIORITY", spec.core_settings.task_schedule_command.priority),
-        ("CORE_ENABLE_TRACE", "true" if spec.core_settings.task_trace_loop.enabled else "false"),
         ("CORE_TRACE_QUEUE_SIZE", spec.core_settings.task_trace_loop.queue_size),
         ("CORE_TRACE_LOOP_TASK_NAME", f'"{spec.core_settings.task_trace_loop.name}"'),
         ("CORE_TRACE_LOOP_TASK_SDEPTH", spec.core_settings.task_trace_loop.stack_depth),
