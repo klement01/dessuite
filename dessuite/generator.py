@@ -54,11 +54,17 @@ class GeneratorSpec:
             if event_controllable:
                 self.ordered_commands.append(core_event)
                 for et_action in et_event.iterfind("Actions/*"):
-                    module = self.modules[et_action.tag]
+                    try:
+                        module = self.modules[et_action.tag]
+                    except KeyError:
+                        raise ValueError(f"uninitialized module: {et_action.tag}") from None
                     module.add_action(core_event, et_action)
 
             for et_trigger in et_event.iterfind("Triggers/*"):
-                module = self.modules[et_trigger.tag]
+                try:
+                    module = self.modules[et_trigger.tag]
+                except KeyError:
+                    raise ValueError(f"uninitialized module: {et_trigger.tag}") from None
                 module.add_trigger(core_event, et_trigger)
 
 

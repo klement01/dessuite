@@ -17,5 +17,5 @@ def get_module_from_name(name: str) -> type[dessuite.generator_tools.modules.com
     try:
         m = MODULE_DB[name]
     except KeyError:
-        raise ValueError(f"unknown module: {name}")
+        raise ValueError(f"unknown module: {name}") from None
     return m
