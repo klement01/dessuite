@@ -1,23 +1,23 @@
 net Controller
-tr b1_delay [200,w[ b1_down -> b1_up 
+tr b1_delay ]200,210[ b1_down -> b1_up 
 tr b1_press b1_up -> b1_down 
 tr cycle_off_finish b1_down?-1 cycle_off_1 -> cycle_off_2 
-tr cycle_off_start b1_down?1 cycle_on_2 cycle_on -> cycle_off_1 
+tr cycle_off_start b1_down?1 cycle_on cycle_on_2 -> cycle_off_1 
 tr cycle_on_finish b1_down?-1 cycle_on_1 -> cycle_on_2 
 tr cycle_on_start b1_down?1 cycle_off_2 -> cycle_on cycle_on_1 
-tr g1_cycle_off [200,w[ cycle_on?1 g1_on -> g1_off 
-tr g1_cycle_on [200,w[ cycle_on?1 g1_off -> g1_on 
-tr g1_turn_off cycle_on?-1 g1_on -> g1_off 
+tr g1_cycle_off ]200,210[ cycle_on?1 g1_on -> g1_off 
+tr g1_cycle_on ]200,210[ cycle_on?1 g1_off -> g1_on 
+tr g1_turn_off [0,10[ cycle_on?-1 g1_on -> g1_off 
 an n1 1 {Button 1 Press Detection}
 an n4 1 {LED W1}
 an n5 1 {Cycle Control}
 an n7 1 {LED R1}
 an n9 1 {LED G1}
-tr r1_cycle_off [500,w[ cycle_on?1 r1_on -> r1_off 
-tr r1_cycle_on [500,w[ cycle_on?1 r1_off -> r1_on 
-tr r1_turn_off cycle_on?-1 r1_on -> r1_off 
-tr w1_turn_off b1_down?-1 w1_on -> w1_off 
-tr w1_turn_on b1_down?1 w1_off -> w1_on 
+tr r1_cycle_off ]500,510[ cycle_on?1 r1_on -> r1_off 
+tr r1_cycle_on ]500,510[ cycle_on?1 r1_off -> r1_on 
+tr r1_turn_off [0,10[ cycle_on?-1 r1_on -> r1_off 
+tr w1_turn_off [0,10[ b1_down?-1 w1_on -> w1_off 
+tr w1_turn_on [0,10[ b1_down?1 w1_off -> w1_on 
 pl b1_up (1)
 pl cycle_off_2 (1)
 pl g1_off (1)

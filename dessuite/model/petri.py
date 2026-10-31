@@ -41,9 +41,15 @@ class Place:
 
 
 @dataclass(frozen=True)
+class IntervalLimit:
+    value: datetime.timedelta
+    inclusive: bool
+
+
+@dataclass(frozen=True)
 class Interval:
-    lower_limit: datetime.timedelta
-    upper_limit: datetime.timedelta | None
+    lower: IntervalLimit
+    upper: IntervalLimit | None
 
 
 type State = Counter[Place]
@@ -135,12 +141,13 @@ class Petri(des.Controller):
             if event in self.structurally_enabled_event_timestamps
         ]
 
+        # TODO: consider 'inclusive' field of intervals.
         return min(
             (
-                (event, transition.interval.lower_limit + self.structurally_enabled_event_timestamps[event])
+                (event, transition.interval.lower.value + self.structurally_enabled_event_timestamps[event])
                 for event, transition in structurally_enabled_controllable_transitions
-                if transition.interval.upper_limit is None
-                or transition.interval.upper_limit + self.structurally_enabled_event_timestamps[event] <= timestamp
+                if transition.interval.upper is None
+                or transition.interval.upper.value + self.structurally_enabled_event_timestamps[event] <= timestamp
             ),
             key=lambda t: t[-1],
             default=None,
@@ -162,9 +169,10 @@ class Petri(des.Controller):
             return False
         transition = self.transitions[event]
         transition_enabled_timestamp = self.structurally_enabled_event_timestamps[event]
-        return transition_enabled_timestamp + transition.interval.lower_limit <= timestamp and (
-            transition.interval.upper_limit is None
-            or timestamp <= transition_enabled_timestamp + transition.interval.upper_limit
+        # TODO: consider 'inclusive' field of intervals.
+        return transition_enabled_timestamp + transition.interval.lower.value <= timestamp and (
+            transition.interval.upper is None
+            or timestamp <= transition_enabled_timestamp + transition.interval.upper.value
         )
 
     def get_event_is_structurally_enabled(self, event: des.Event) -> bool:
@@ -212,8 +220,16 @@ class Petri(des.Controller):
 
                     # TODO: don't ignore "inclusive" fields of interval.
                     interval = Interval(
-                        trdesc.interval.lower_limit.value * interval_scale,
-                        trdesc.interval.upper_limit.value * interval_scale if trdesc.interval.upper_limit else None,
+                        lower=IntervalLimit(
+                            value=trdesc.interval.lower_limit.value * interval_scale,
+                            inclusive=trdesc.interval.lower_limit.inclusive,
+                        ),
+                        upper=None
+                        if trdesc.interval.upper_limit is None
+                        else IntervalLimit(
+                            value=trdesc.interval.upper_limit.value * interval_scale,
+                            inclusive=trdesc.interval.upper_limit.inclusive,
+                        ),
                     )
 
                     transitions[des.Event(event_name)] = Transition(

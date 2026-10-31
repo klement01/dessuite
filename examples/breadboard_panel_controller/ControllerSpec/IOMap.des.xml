@@ -1,7 +1,7 @@
 <Dessuite>
 	<Core>
 		<!-- Core settings -->
-		<EventQueueSize>32</EventQueueSize>
+		<EventQueueSize>16</EventQueueSize>
 		<Tasks>
 			<TraceLoop>
 				<Enabled>True</Enabled>
@@ -127,6 +127,5 @@
 				</HalGpio>
 			</Actions>
 		</Event>
-		<!-- Perma Halt -->
 	</Events>
 </Dessuite>

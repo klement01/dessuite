@@ -157,10 +157,14 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
                     input_arcs_var.name,
                     delta_arcs_var.name,
                     affected_transitions_var.name,
-                    f"pdMS_TO_TICKS({round(transition.interval.lower_limit.total_seconds() * 1e3)}U)",
+                    f"pdMS_TO_TICKS({round(transition.interval.lower.value.total_seconds() * 1e3)}U)"
+                    + ("" if transition.interval.lower.inclusive else "+1"),
                     "portMAX_DELAY"
-                    if transition.interval.upper_limit is None
-                    else f"pdMS_TO_TICKS({round(transition.interval.upper_limit.total_seconds() * 1e3)}U)",
+                    if transition.interval.upper is None
+                    else (
+                        f"pdMS_TO_TICKS({round(transition.interval.upper.value.total_seconds() * 1e3)}U)"
+                        + ("" if transition.interval.upper.inclusive else "-1")
+                    ),
                 )
             )
             + "}"
@@ -244,6 +248,7 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         ("TRACE_TYPE_OUTGOING_COMMAND_QUEUED", TraceType.OUTGOING_COMMAND_QUEUED),
         ("TRACE_TYPE_OUTGOING_COMMAND_STARTED", TraceType.OUTGOING_COMMAND_STARTED),
         ("TRACE_TYPE_OUTGOING_COMMAND_FINISHED", TraceType.OUTGOING_COMMAND_FINISHED),
+        ("TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE", TraceType.COMMAND_NOT_CHOSEN_TOO_LATE),
         # Core data.
         ("CORE_COMMAND_HANDLER_FUNCTIONS", command_handler_cw),
         ("CORE_COMMAND_HANDLER_VECTOR", f",\n{' ' * INDENT}".join(command_handler_vector_entries)),

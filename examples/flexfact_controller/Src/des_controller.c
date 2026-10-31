@@ -107,6 +107,14 @@ struct TransitionArc
   const ArcWeight_t weight;
 };
 
+enum EventStatus : uint8_t
+{
+  EVENT_STATUS_ENABLED,
+  EVENT_STATUS_DISABLED_STRUCTURALLY,
+  EVENT_STATUS_DISABLED_TOO_SOON,
+  EVENT_STATUS_DISABLED_TOO_LATE
+};
+
 struct EventTransition
 {
   const int8_t inhibitorArcsCount;
@@ -403,108 +411,6 @@ const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
 };
 
 
-/** Petri Net variables and update functions. **/
-
-struct Place corePlaces[CORE_PLACE_COUNT] = { {1}, {0}, {0}, {0}, {0}, {1}, {0}, {0}, {0}, {0}, {0} };
-TickType_t transitionEnabledTime[CORE_EVENT_COUNT] = { 0 };
-
-enum EventStatus : uint8_t
-{
-  EVENT_STATUS_ENABLED,
-  EVENT_STATUS_DISABLED_STRUCTURALLY,
-  EVENT_STATUS_DISABLED_TOO_SOON,
-  EVENT_STATUS_DISABLED_TOO_LATE
-};
-
-enum EventStatus NetGetEventStatus(EventIdx_t eventIdx, TickType_t tick)
-{
-  if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
-    return EVENT_STATUS_DISABLED_STRUCTURALLY;
-
-  const TickType_t timeElapsed = tick - transitionEnabledTime[eventIdx];
-  if (timeElapsed < CORE_EVENT_TRANSITIONS[eventIdx].intervalLowerLimit)
-    return EVENT_STATUS_DISABLED_TOO_SOON;
-  if (CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit != portMAX_DELAY
-    && CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit < timeElapsed)
-    return EVENT_STATUS_DISABLED_TOO_LATE;
-
-  return EVENT_STATUS_ENABLED;
-}
-
-void NetUpdateTransitionEnabledTime(EventIdx_t eventIdx, TickType_t tick)
-{
-  for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcsCount; ++idx)
-  {
-    const PlaceIdx_t arcPlace = CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcs[idx].placeIdx;
-    const ArcWeight_t arcWeight = CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcs[idx].weight;
-    if (corePlaces[arcPlace].markings >= arcWeight)
-    {
-      transitionEnabledTime[eventIdx] = portMAX_DELAY;
-      return;
-    }
-  }
-
-  for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].inputArcsCount; ++idx)
-  {
-    const PlaceIdx_t arcPlace = CORE_EVENT_TRANSITIONS[eventIdx].inputArcs[idx].placeIdx;
-    const ArcWeight_t arcWeight = CORE_EVENT_TRANSITIONS[eventIdx].inputArcs[idx].weight;
-    if (arcWeight > corePlaces[arcPlace].markings)
-    {
-      transitionEnabledTime[eventIdx] = portMAX_DELAY;
-      return;
-    }
-  }
-
-  if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
-    transitionEnabledTime[eventIdx] = tick;
-}
-
-enum EventStatus NetTryUpdate(EventIdx_t eventIdx, TickType_t tick)
-{
-  const enum EventStatus eventStatus = NetGetEventStatus(eventIdx, tick);
-  if (eventStatus != EVENT_STATUS_ENABLED)
-    return eventStatus;
-
-  for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].deltaArcsCount; ++idx)
-  {
-    const PlaceIdx_t placeIdx = CORE_EVENT_TRANSITIONS[eventIdx].deltaArcs[idx].placeIdx;
-    const ArcWeight_t weight = CORE_EVENT_TRANSITIONS[eventIdx].deltaArcs[idx].weight;
-    corePlaces[placeIdx].markings += weight;
-  }
-
-  for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].affectedTransitionsCount; ++idx)
-    NetUpdateTransitionEnabledTime(CORE_EVENT_TRANSITIONS[eventIdx].affectedTransitions[idx], tick);
-
-  return EVENT_STATUS_ENABLED;
-}
-
-bool NetGetNextEnabledCommand(TickType_t currentTick, struct RichCommand *command)
-{
-  command->tick = portMAX_DELAY;
-
-  for (CommandIdx_t commandIdx = 0; commandIdx < CORE_COMMAND_COUNT; ++commandIdx)
-  {
-    const EventIdx_t eventIdx = CORE_COMMANDS[commandIdx].eventIdx;
-
-    if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
-      continue;
-
-    if (CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit != portMAX_DELAY
-      && currentTick > transitionEnabledTime[eventIdx] + CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit)
-      continue;
-
-    const TickType_t commandEnabledTick = transitionEnabledTime[eventIdx] + CORE_EVENT_TRANSITIONS[eventIdx].intervalLowerLimit;
-    if (command->tick == portMAX_DELAY || commandEnabledTick < command->tick)
-    {
-      command->idx = commandIdx;
-      command->tick = commandEnabledTick;
-    }
-  }
-
-  return command->tick != portMAX_DELAY;
-}
-
-
 /** Log functions. **/
 
 #ifdef CORE_ENABLE_TRACE
@@ -534,7 +440,8 @@ enum TraceType : TraceType_t
   TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_LATE     = (10),
   TRACE_TYPE_OUTGOING_COMMAND_QUEUED               = (12),
   TRACE_TYPE_OUTGOING_COMMAND_STARTED              = (13),
-  TRACE_TYPE_OUTGOING_COMMAND_FINISHED             = (14)
+  TRACE_TYPE_OUTGOING_COMMAND_FINISHED             = (14),
+  TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE           = (15)
 };
 
 struct Trace
@@ -578,6 +485,7 @@ void TaskTraceLoop(void*)
       case TRACE_TYPE_OUTGOING_COMMAND_QUEUED:
       case TRACE_TYPE_OUTGOING_COMMAND_STARTED:
       case TRACE_TYPE_OUTGOING_COMMAND_FINISHED:
+      case TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE:
         printf("%lu\t%u", trace.data.event.tick, trace.data.event.idx);
         break;
       default:
@@ -696,6 +604,17 @@ static inline void TraceOutgoingCommandFinished(CommandIdx_t commandIdx, TickTyp
   configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
 }
 
+static inline void TraceCommandNotChosenTooLate(CommandIdx_t commandIdx, TickType_t eventTick)
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTick(),
+    .traceType = TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE,
+    .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
+    .data.event.tick = eventTick
+  };
+  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
+}
+
 #else
 
 #define TraceTickRate(...) ((void)0)
@@ -704,8 +623,106 @@ static inline void TraceOutgoingCommandFinished(CommandIdx_t commandIdx, TickTyp
 #define TraceOutgoingCommandQueued(...) ((void)0)
 #define TraceOutgoingCommandStarted(...) ((void)0)
 #define TraceOutgoingCommandFinished(...) ((void)0)
+#define TraceCommandNotChosenTooLate(...) ((void)0)
 
 #endif
+
+
+/** Petri Net variables and update functions. **/
+
+struct Place corePlaces[CORE_PLACE_COUNT] = { {1}, {0}, {0}, {0}, {0}, {1}, {0}, {0}, {0}, {0}, {0} };
+TickType_t transitionEnabledTime[CORE_EVENT_COUNT] = { 0 };
+
+enum EventStatus NetGetEventStatus(EventIdx_t eventIdx, TickType_t tick)
+{
+  if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
+    return EVENT_STATUS_DISABLED_STRUCTURALLY;
+
+  const TickType_t timeElapsed = tick - transitionEnabledTime[eventIdx];
+  if (timeElapsed < CORE_EVENT_TRANSITIONS[eventIdx].intervalLowerLimit)
+    return EVENT_STATUS_DISABLED_TOO_SOON;
+  if (CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit != portMAX_DELAY
+    && CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit < timeElapsed)
+    return EVENT_STATUS_DISABLED_TOO_LATE;
+
+  return EVENT_STATUS_ENABLED;
+}
+
+void NetUpdateTransitionEnabledTime(EventIdx_t eventIdx, TickType_t tick)
+{
+  for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcsCount; ++idx)
+  {
+    const PlaceIdx_t arcPlace = CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcs[idx].placeIdx;
+    const ArcWeight_t arcWeight = CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcs[idx].weight;
+    if (corePlaces[arcPlace].markings >= arcWeight)
+    {
+      transitionEnabledTime[eventIdx] = portMAX_DELAY;
+      return;
+    }
+  }
+
+  for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].inputArcsCount; ++idx)
+  {
+    const PlaceIdx_t arcPlace = CORE_EVENT_TRANSITIONS[eventIdx].inputArcs[idx].placeIdx;
+    const ArcWeight_t arcWeight = CORE_EVENT_TRANSITIONS[eventIdx].inputArcs[idx].weight;
+    if (arcWeight > corePlaces[arcPlace].markings)
+    {
+      transitionEnabledTime[eventIdx] = portMAX_DELAY;
+      return;
+    }
+  }
+
+  if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
+    transitionEnabledTime[eventIdx] = tick;
+}
+
+enum EventStatus NetTryUpdate(EventIdx_t eventIdx, TickType_t tick)
+{
+  const enum EventStatus eventStatus = NetGetEventStatus(eventIdx, tick);
+  if (eventStatus != EVENT_STATUS_ENABLED)
+    return eventStatus;
+
+  for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].deltaArcsCount; ++idx)
+  {
+    const PlaceIdx_t placeIdx = CORE_EVENT_TRANSITIONS[eventIdx].deltaArcs[idx].placeIdx;
+    const ArcWeight_t weight = CORE_EVENT_TRANSITIONS[eventIdx].deltaArcs[idx].weight;
+    corePlaces[placeIdx].markings += weight;
+  }
+
+  for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].affectedTransitionsCount; ++idx)
+    NetUpdateTransitionEnabledTime(CORE_EVENT_TRANSITIONS[eventIdx].affectedTransitions[idx], tick);
+
+  return EVENT_STATUS_ENABLED;
+}
+
+bool NetGetNextEnabledCommand(TickType_t currentTick, struct RichCommand *command)
+{
+  command->tick = portMAX_DELAY;
+
+  for (CommandIdx_t commandIdx = 0; commandIdx < CORE_COMMAND_COUNT; ++commandIdx)
+  {
+    const EventIdx_t eventIdx = CORE_COMMANDS[commandIdx].eventIdx;
+
+    if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
+      continue;
+
+    if (CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit != portMAX_DELAY
+      && currentTick > transitionEnabledTime[eventIdx] + CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit)
+    {
+      TraceCommandNotChosenTooLate(commandIdx, currentTick);
+      continue;
+    }
+
+    const TickType_t commandEnabledTick = transitionEnabledTime[eventIdx] + CORE_EVENT_TRANSITIONS[eventIdx].intervalLowerLimit;
+    if (command->tick == portMAX_DELAY || commandEnabledTick < command->tick)
+    {
+      command->idx = commandIdx;
+      command->tick = commandEnabledTick;
+    }
+  }
+
+  return command->tick != portMAX_DELAY;
+}
 
 
 /** Core variables, tasks and helper functions. **/

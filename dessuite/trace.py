@@ -16,3 +16,4 @@ class TraceType(enum.IntEnum):
     OUTGOING_COMMAND_QUEUED = enum.auto()
     OUTGOING_COMMAND_STARTED = enum.auto()
     OUTGOING_COMMAND_FINISHED = enum.auto()
+    COMMAND_NOT_CHOSEN_TOO_LATE = enum.auto()
