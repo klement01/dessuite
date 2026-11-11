@@ -1,0 +1,630 @@
+#include "des_controller.h"
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#include "FreeRTOS.h"
+#include "FreeRTOSConfig.h"
+#include "portmacro.h"
+#include "projdefs.h"
+#include "task.h"
+#include "queue.h"
+#include "semphr.h"
+#include "timers.h"
+
+#if (false)
+#define CORE_ENABLE_TRACE
+#endif
+
+#if (false)
+#define CORE_ENABLE_CUSTOM_TRACE_CLOCK
+#endif
+
+#ifdef CORE_ENABLE_TRACE
+#include <stdio.h>
+#endif
+
+/** Module includes and defines. **/
+
+
+
+
+/** Core data (defines, types and constants). **/
+
+/* User parameters. */
+
+#define CORE_EVENT_QUEUE_SIZE (32)
+
+#define CORE_EVENT_LOOP_TASK_NAME ("DessuiteEventLoop")
+#define CORE_EVENT_LOOP_TASK_SDEPTH (configMINIMAL_STACK_SIZE)
+#define CORE_EVENT_LOOP_TASK_PRIORITY (configMAX_PRIORITIES - 1)
+
+#define CORE_SCHEDULE_COMMAND_TASK_NAME ("DessuiteScheduleCommand")
+#define CORE_SCHEDULE_COMMAND_TASK_PRIORITY (configMAX_PRIORITIES - 2)
+
+#ifdef CORE_ENABLE_TRACE
+
+#define CORE_TRACE_QUEUE_SIZE (32)
+
+#define CORE_TRACE_LOOP_TASK_NAME ("DessuiteTraceLoop")
+#define CORE_TRACE_LOOP_TASK_SDEPTH (configMINIMAL_STACK_SIZE)
+#define CORE_TRACE_LOOP_TASK_PRIORITY (1)
+
+#endif
+
+/* Petri Net definition. */
+
+#define CORE_EVENT_COUNT (2)
+#define CORE_COMMAND_COUNT (1)
+#define CORE_PLACE_COUNT (2)
+
+typedef uint8_t EventIdx_t;
+typedef uint8_t PlaceIdx_t;
+typedef uint8_t CommandIdx_t;
+typedef uint8_t PlaceMarking_t;
+typedef int8_t ArcWeight_t;
+
+enum EventIdx : EventIdx_t
+{
+  EVENT_0, // T1
+  EVENT_1, // T2
+  EVENT_SCHEDULED_COMMAND
+};
+
+struct RichEvent
+{
+  EventIdx_t idx;
+  TickType_t tick;
+};
+
+struct RichCommand
+{
+  CommandIdx_t idx;
+  TickType_t tick;
+};
+
+struct Place
+{
+  PlaceMarking_t markings;
+};
+
+struct TransitionArc
+{
+  const PlaceIdx_t placeIdx;
+  const ArcWeight_t weight;
+};
+
+enum EventStatus : uint8_t
+{
+  EVENT_STATUS_ENABLED,
+  EVENT_STATUS_DISABLED_STRUCTURALLY,
+  EVENT_STATUS_DISABLED_TOO_SOON,
+  EVENT_STATUS_DISABLED_TOO_LATE
+};
+
+struct EventTransition
+{
+  const int8_t inhibitorArcsCount;
+  const int8_t inputArcsCount;
+  const int8_t deltaArcsCount;
+  const int8_t affectedTransitionsCount;
+  const struct TransitionArc *inhibitorArcs;
+  const struct TransitionArc *inputArcs;
+  const struct TransitionArc *deltaArcs;
+  const EventIdx_t *affectedTransitions;
+  const TickType_t intervalLowerLimit;
+  const TickType_t intervalUpperLimit;
+};
+
+const struct TransitionArc EVENT_0_INHIBITOR_ARCS[1] = {
+  {1, 1}
+};
+const struct TransitionArc EVENT_0_INPUT_ARCS[1] = {
+  {0, 1}
+};
+const struct TransitionArc EVENT_0_DELTA_ARCS[2] = {
+  {0, -1},
+  {1, 1}
+};
+const EventIdx_t EVENT_0_AFFECTED_TRANSITIONS[2] = {0, 1};
+
+const struct TransitionArc EVENT_1_INHIBITOR_ARCS[0] = {};
+const struct TransitionArc EVENT_1_INPUT_ARCS[2] = {
+  {0, 1},
+  {1, 1}
+};
+const struct TransitionArc EVENT_1_DELTA_ARCS[1] = {
+  {1, -1}
+};
+const EventIdx_t EVENT_1_AFFECTED_TRANSITIONS[2] = {0, 1};
+
+const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
+{
+  {1, 1, 2, 2, EVENT_0_INHIBITOR_ARCS, EVENT_0_INPUT_ARCS, EVENT_0_DELTA_ARCS, EVENT_0_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U)+1, pdMS_TO_TICKS(10U)-1},
+  {0, 2, 1, 2, EVENT_1_INHIBITOR_ARCS, EVENT_1_INPUT_ARCS, EVENT_1_DELTA_ARCS, EVENT_1_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(50U)+1, portMAX_DELAY},
+};
+
+
+/** Inter-task communication, available to modules. **/
+
+QueueHandle_t EventQueue;
+
+static inline void NewIncomingEventISR(EventIdx_t eventIdx, TickType_t tick, BaseType_t *xHigherPriorityTaskWoken)
+{
+  struct RichEvent incomingEvent = { .idx = eventIdx, .tick = tick };
+  configASSERT(pdPASS == xQueueSendToBackFromISR(EventQueue, &incomingEvent, xHigherPriorityTaskWoken));
+}
+
+
+/** Module data (defines, types and constants). **/
+
+
+
+
+/** Module variables. **/
+
+
+
+
+/** Module function definitions. **/
+
+
+
+
+/** Module input interface functions. **/
+
+
+
+
+/** Module output interface functions. **/
+
+
+
+
+/** Core command handler. */
+
+struct Command
+{
+  const enum EventIdx eventIdx;
+  const void (*handler)(void);
+};
+
+void EVENT_0_COMMAND_HANDLER(void)
+{
+}
+
+const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
+{
+  {0, EVENT_0_COMMAND_HANDLER}
+};
+
+
+/** Log functions. **/
+
+#ifdef CORE_ENABLE_TRACE
+
+#ifndef CORE_ENABLE_CUSTOM_TRACE_CLOCK
+#define TRACE_TICK_RATE configTICK_RATE_HZ
+typedef uint32_t TraceTickType_t;
+static inline TraceTickType_t GetTraceTick()
+{
+  return (TraceTickType_t)xTaskGetTickCount();
+}
+#endif
+
+typedef uint8_t TraceType_t;
+
+enum TraceType : TraceType_t
+{
+  TRACE_TYPE_TICK_RATE                             = (1),
+  TRACE_TYPE_NET_START_TICK                        = (2),
+  TRACE_TYPE_INCOMING_EVENT_ACCEPTED               = (3),
+  TRACE_TYPE_INCOMING_EVENT_DROPPED_STRUCTURALLY   = (4),
+  TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_SOON       = (5),
+  TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_LATE       = (6),
+  TRACE_TYPE_OUTGOING_COMMAND_ACCEPTED             = (7),
+  TRACE_TYPE_OUTGOING_COMMAND_DROPPED_STRUCTURALLY = (8),
+  TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_SOON     = (9),
+  TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_LATE     = (10),
+  TRACE_TYPE_OUTGOING_COMMAND_QUEUED               = (12),
+  TRACE_TYPE_OUTGOING_COMMAND_STARTED              = (13),
+  TRACE_TYPE_OUTGOING_COMMAND_FINISHED             = (14),
+  TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE           = (15)
+};
+
+struct Trace
+{
+  TraceTickType_t traceTick;
+  TraceType_t traceType;
+  union {
+    struct RichEvent event;
+    TickType_t startTick;
+  } data;
+};
+
+TaskHandle_t TaskTraceLoopHandle;
+QueueHandle_t TraceQueue;
+
+void TaskTraceLoop(void*)
+{
+  for (;;)
+  {
+    struct Trace trace;
+    configASSERT(pdPASS == xQueueReceive(TraceQueue, &trace, portMAX_DELAY));
+
+    printf("%lu\t%u\t", trace.traceTick, trace.traceType);
+
+    switch (trace.traceType)
+    {
+      case TRACE_TYPE_TICK_RATE:
+        printf("%lu\t%lu", (TraceTickType_t)configTICK_RATE_HZ, (TraceTickType_t)TRACE_TICK_RATE);
+        break;
+      case TRACE_TYPE_NET_START_TICK:
+        printf("%lu",  trace.data.startTick);
+        break;
+      case TRACE_TYPE_INCOMING_EVENT_ACCEPTED:
+      case TRACE_TYPE_INCOMING_EVENT_DROPPED_STRUCTURALLY:
+      case TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_SOON:
+      case TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_LATE:
+      case TRACE_TYPE_OUTGOING_COMMAND_ACCEPTED:
+      case TRACE_TYPE_OUTGOING_COMMAND_DROPPED_STRUCTURALLY:
+      case TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_SOON:
+      case TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_LATE:
+      case TRACE_TYPE_OUTGOING_COMMAND_QUEUED:
+      case TRACE_TYPE_OUTGOING_COMMAND_STARTED:
+      case TRACE_TYPE_OUTGOING_COMMAND_FINISHED:
+      case TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE:
+        printf("%lu\t%u", trace.data.event.tick, trace.data.event.idx);
+        break;
+      default:
+        configASSERT(false);
+    }
+
+    printf("\n");
+  }
+}
+
+static inline void TraceTickRate()
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTick(),
+    .traceType = TRACE_TYPE_TICK_RATE 
+  };
+  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
+}
+
+static inline void TraceNetStartTick(TickType_t startTick)
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTick(),
+    .traceType = TRACE_TYPE_NET_START_TICK,
+    .data.startTick = startTick
+  };
+  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
+}
+
+static inline void TraceNetUpdate(EventIdx_t eventIdx, TickType_t eventTick, bool isCommand, enum EventStatus eventStatus)
+{
+  const TraceTickType_t traceTick = GetTraceTick();
+  TraceType_t traceType;
+
+  if (isCommand)
+  {
+    switch (eventStatus)
+    {
+      case EVENT_STATUS_ENABLED:
+        traceType = TRACE_TYPE_OUTGOING_COMMAND_ACCEPTED;
+        break;
+      case EVENT_STATUS_DISABLED_STRUCTURALLY:
+        traceType = TRACE_TYPE_OUTGOING_COMMAND_DROPPED_STRUCTURALLY;
+        break;
+      case EVENT_STATUS_DISABLED_TOO_SOON:
+        traceType = TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_SOON;
+        break;
+      case EVENT_STATUS_DISABLED_TOO_LATE:
+        traceType = TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_LATE;
+        break;
+      default:
+        configASSERT(false);
+    }
+  }
+  else
+  {
+    switch (eventStatus)
+    {
+      case EVENT_STATUS_ENABLED:
+        traceType = TRACE_TYPE_INCOMING_EVENT_ACCEPTED;
+        break;
+      case EVENT_STATUS_DISABLED_STRUCTURALLY:
+        traceType = TRACE_TYPE_INCOMING_EVENT_DROPPED_STRUCTURALLY;
+        break;
+      case EVENT_STATUS_DISABLED_TOO_SOON:
+        traceType = TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_SOON;
+        break;
+      case EVENT_STATUS_DISABLED_TOO_LATE:
+        traceType = TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_LATE;
+        break;
+      default:
+        configASSERT(false);
+    }
+  }
+
+  const struct Trace trace = {
+    .traceTick = traceTick,
+    .traceType = traceType,
+    .data.event.idx = eventIdx,
+    .data.event.tick = eventTick
+  };
+
+  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
+}
+
+static inline void TraceOutgoingCommandQueued(CommandIdx_t commandIdx, TickType_t eventTick)
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTick(),
+    .traceType = TRACE_TYPE_OUTGOING_COMMAND_QUEUED,
+    .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
+    .data.event.tick = eventTick
+  };
+  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
+}
+
+static inline void TraceOutgoingCommandStarted(CommandIdx_t commandIdx, TickType_t eventTick)
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTick(),
+    .traceType = TRACE_TYPE_OUTGOING_COMMAND_STARTED,
+    .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
+    .data.event.tick = eventTick
+  };
+  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
+}
+
+static inline void TraceOutgoingCommandFinished(CommandIdx_t commandIdx, TickType_t eventTick)
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTick(),
+    .traceType = TRACE_TYPE_OUTGOING_COMMAND_FINISHED,
+    .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
+    .data.event.tick = eventTick
+  };
+  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
+}
+
+static inline void TraceCommandNotChosenTooLate(CommandIdx_t commandIdx, TickType_t eventTick)
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTick(),
+    .traceType = TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE,
+    .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
+    .data.event.tick = eventTick
+  };
+  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
+}
+
+#else
+
+#define TraceTickRate(...) ((void)0)
+#define TraceNetStartTick(...) ((void)0)
+#define TraceNetUpdate(...) ((void)0)
+#define TraceOutgoingCommandQueued(...) ((void)0)
+#define TraceOutgoingCommandStarted(...) ((void)0)
+#define TraceOutgoingCommandFinished(...) ((void)0)
+#define TraceCommandNotChosenTooLate(...) ((void)0)
+
+#endif
+
+
+/** Petri Net variables and update functions. **/
+
+struct Place corePlaces[CORE_PLACE_COUNT] = { {3}, {0} };
+TickType_t transitionEnabledTime[CORE_EVENT_COUNT] = { 0 };
+
+enum EventStatus NetGetEventStatus(EventIdx_t eventIdx, TickType_t tick)
+{
+  if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
+    return EVENT_STATUS_DISABLED_STRUCTURALLY;
+
+  const TickType_t timeElapsed = tick - transitionEnabledTime[eventIdx];
+  if (timeElapsed < CORE_EVENT_TRANSITIONS[eventIdx].intervalLowerLimit)
+    return EVENT_STATUS_DISABLED_TOO_SOON;
+  if (CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit != portMAX_DELAY
+    && CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit < timeElapsed)
+    return EVENT_STATUS_DISABLED_TOO_LATE;
+
+  return EVENT_STATUS_ENABLED;
+}
+
+void NetUpdateTransitionEnabledTime(EventIdx_t eventIdx, TickType_t tick)
+{
+  for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcsCount; ++idx)
+  {
+    const PlaceIdx_t arcPlace = CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcs[idx].placeIdx;
+    const ArcWeight_t arcWeight = CORE_EVENT_TRANSITIONS[eventIdx].inhibitorArcs[idx].weight;
+    if (corePlaces[arcPlace].markings >= arcWeight)
+    {
+      transitionEnabledTime[eventIdx] = portMAX_DELAY;
+      return;
+    }
+  }
+
+  for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].inputArcsCount; ++idx)
+  {
+    const PlaceIdx_t arcPlace = CORE_EVENT_TRANSITIONS[eventIdx].inputArcs[idx].placeIdx;
+    const ArcWeight_t arcWeight = CORE_EVENT_TRANSITIONS[eventIdx].inputArcs[idx].weight;
+    if (arcWeight > corePlaces[arcPlace].markings)
+    {
+      transitionEnabledTime[eventIdx] = portMAX_DELAY;
+      return;
+    }
+  }
+
+  if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
+    transitionEnabledTime[eventIdx] = tick;
+}
+
+enum EventStatus NetTryUpdate(EventIdx_t eventIdx, TickType_t tick)
+{
+  const enum EventStatus eventStatus = NetGetEventStatus(eventIdx, tick);
+  if (eventStatus != EVENT_STATUS_ENABLED)
+    return eventStatus;
+
+  for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].deltaArcsCount; ++idx)
+  {
+    const PlaceIdx_t placeIdx = CORE_EVENT_TRANSITIONS[eventIdx].deltaArcs[idx].placeIdx;
+    const ArcWeight_t weight = CORE_EVENT_TRANSITIONS[eventIdx].deltaArcs[idx].weight;
+    corePlaces[placeIdx].markings += weight;
+  }
+
+  for (int8_t idx = 0; idx < CORE_EVENT_TRANSITIONS[eventIdx].affectedTransitionsCount; ++idx)
+    NetUpdateTransitionEnabledTime(CORE_EVENT_TRANSITIONS[eventIdx].affectedTransitions[idx], tick);
+
+  return EVENT_STATUS_ENABLED;
+}
+
+bool NetGetNextEnabledCommand(TickType_t currentTick, struct RichCommand *command)
+{
+  command->tick = portMAX_DELAY;
+
+  for (CommandIdx_t commandIdx = 0; commandIdx < CORE_COMMAND_COUNT; ++commandIdx)
+  {
+    const EventIdx_t eventIdx = CORE_COMMANDS[commandIdx].eventIdx;
+
+    if (transitionEnabledTime[eventIdx] == portMAX_DELAY)
+      continue;
+
+    if (CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit != portMAX_DELAY
+      && currentTick > transitionEnabledTime[eventIdx] + CORE_EVENT_TRANSITIONS[eventIdx].intervalUpperLimit)
+    {
+      TraceCommandNotChosenTooLate(commandIdx, currentTick);
+      continue;
+    }
+
+    const TickType_t commandEnabledTick = transitionEnabledTime[eventIdx] + CORE_EVENT_TRANSITIONS[eventIdx].intervalLowerLimit;
+    if (command->tick == portMAX_DELAY || commandEnabledTick < command->tick)
+    {
+      command->idx = commandIdx;
+      command->tick = commandEnabledTick;
+    }
+  }
+
+  return command->tick != portMAX_DELAY;
+}
+
+
+/** Core variables, tasks and helper functions. **/
+
+TaskHandle_t TaskEventLoopHandle;
+TimerHandle_t TimerScheduleCommandHandle;
+
+void TaskEventLoop(void*)
+{
+  {
+    TraceTickRate();
+
+    // Initialize Petri Net.
+    TickType_t startTick = xTaskGetTickCount();
+    TraceNetStartTick(startTick);
+    for (EventIdx_t eventIdx = 0; eventIdx < CORE_EVENT_COUNT; ++eventIdx)
+      NetUpdateTransitionEnabledTime(eventIdx, startTick);
+
+    // Set priority for timer task (TimerScheduleCommand).
+    vTaskPrioritySet(xTimerGetTimerDaemonTaskHandle(), CORE_SCHEDULE_COMMAND_TASK_PRIORITY);
+  }
+
+  for (;;)
+  {
+    // Process queued events and execute commands until there are no new events and no immediate commands.
+    for (;;)
+    {
+      // Process all queued events.
+      {
+        struct RichEvent event;
+        while (pdPASS == xQueueReceive(EventQueue, &event, 0))
+        {
+          if (event.idx == EVENT_SCHEDULED_COMMAND)
+            continue;
+
+          const enum EventStatus eventStatus = NetTryUpdate(event.idx, event.tick);
+          TraceNetUpdate(event.idx, event.tick, false, eventStatus);
+        }
+      }
+
+      // Get next enabled command or break if there isn't one.
+      struct RichCommand command;
+      if (!NetGetNextEnabledCommand(xTaskGetTickCount(), &command))
+        break;
+
+      // Return to event processing if a new event arrived while choosing command.
+      {
+        struct RichEvent event;
+        if (pdPASS == xQueuePeek(EventQueue, &event, 0))
+          continue;
+      }
+
+      const TickType_t currentTick = xTaskGetTickCount();
+      if (command.tick > currentTick)
+      {
+        // Command isn't enabled yet: schedule execution.
+        const TickType_t period = command.tick - currentTick;
+        configASSERT(pdPASS == xTimerChangePeriod(TimerScheduleCommandHandle, period, portMAX_DELAY));
+        configASSERT(pdPASS == xTimerStart(TimerScheduleCommandHandle, portMAX_DELAY));
+        TraceOutgoingCommandQueued(command.idx, command.tick);
+        break;
+      }
+      else
+      {
+        // Command is already enabled: execute immediately.
+        const enum EventStatus eventStatus = NetTryUpdate(CORE_COMMANDS[command.idx].eventIdx, currentTick);
+        TraceNetUpdate(CORE_COMMANDS[command.idx].eventIdx, currentTick, true, eventStatus);
+        if (eventStatus == EVENT_STATUS_ENABLED)
+        {
+          TraceOutgoingCommandStarted(command.idx, command.tick);
+          CORE_COMMANDS[command.idx].handler();
+          TraceOutgoingCommandFinished(command.idx, command.tick);
+        }
+      }
+    }
+
+    // Wait for an incoming event.
+    {
+      struct RichEvent event;
+      configASSERT(pdPASS == xQueuePeek(EventQueue, &event, portMAX_DELAY));
+    }
+
+    // Cancel pending command timer, if any.
+    configASSERT(pdPASS == xTimerStop(TimerScheduleCommandHandle, portMAX_DELAY));
+  }
+}
+
+void TimerScheduleCommand(TimerHandle_t timerHandle)
+{
+  if (timerHandle != TimerScheduleCommandHandle)
+    // Prevent execution by user code.
+    return;
+
+  struct RichEvent scheduledCommand = { .idx = EVENT_SCHEDULED_COMMAND };
+  configASSERT(pdPASS == xQueueSendToBack(EventQueue, &scheduledCommand, 0));
+}
+
+
+/** Initialization function. Called by user code. **/
+
+void DesControllerSetup(void)
+{
+  /* Core initialization. */
+  configASSERT(NULL != (EventQueue = xQueueCreate(CORE_EVENT_QUEUE_SIZE, sizeof(struct RichEvent))));
+
+  configASSERT(pdPASS == xTaskCreate(TaskEventLoop, CORE_EVENT_LOOP_TASK_NAME, CORE_EVENT_LOOP_TASK_SDEPTH, NULL, CORE_EVENT_LOOP_TASK_PRIORITY, &TaskEventLoopHandle));
+  configASSERT(NULL != (TimerScheduleCommandHandle = xTimerCreate(CORE_SCHEDULE_COMMAND_TASK_NAME, portMAX_DELAY, pdFALSE, NULL, TimerScheduleCommand)));
+
+#ifdef CORE_ENABLE_TRACE
+  configASSERT(NULL != (TraceQueue = xQueueCreate(CORE_TRACE_QUEUE_SIZE, sizeof(struct Trace))));
+  configASSERT(pdPASS == xTaskCreate(TaskTraceLoop, CORE_TRACE_LOOP_TASK_NAME, CORE_TRACE_LOOP_TASK_SDEPTH, NULL, CORE_TRACE_LOOP_TASK_PRIORITY, &TaskTraceLoopHandle));
+#endif
+
+  /* Module initialization. */
+
+}
