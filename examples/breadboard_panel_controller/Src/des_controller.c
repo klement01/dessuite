@@ -302,17 +302,6 @@ const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
 };
 
 
-/** Inter-task communication, available to modules. **/
-
-QueueHandle_t EventQueue;
-
-static inline void NewIncomingEventISR(EventIdx_t eventIdx, TickType_t tick, BaseType_t *xHigherPriorityTaskWoken)
-{
-  struct TimeStampedEvent incomingEvent = { .idx = eventIdx, .tick = tick };
-  configASSERT(pdPASS == xQueueSendToBackFromISR(EventQueue, &incomingEvent, xHigherPriorityTaskWoken));
-}
-
-
 /** Module data (defines, types and constants). **/
 
 
@@ -326,22 +315,6 @@ static inline void NewIncomingEventISR(EventIdx_t eventIdx, TickType_t tick, Bas
 /** Module function definitions. **/
 
 
-
-
-/** Module input interface functions. **/
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-  const TickType_t tick = xTaskGetTickCountFromISR();
-  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-  switch (GPIO_Pin)
-  {
-    case BUTTON_1_Pin:
-      NewIncomingEventISR(EVENT_1, tick, &xHigherPriorityTaskWoken);
-      break;
-  }
-  portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-}
 
 
 /** Module output interface functions. **/
@@ -434,20 +407,21 @@ enum TraceType : TraceType_t
 {
   TRACE_TYPE_TICK_RATE                             = (1),
   TRACE_TYPE_NET_START_TICK                        = (2),
-  TRACE_TYPE_INCOMING_EVENT_ACCEPTED               = (3),
-  TRACE_TYPE_INCOMING_EVENT_DROPPED_STRUCTURALLY   = (4),
-  TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_SOON       = (5),
-  TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_LATE       = (6),
-  TRACE_TYPE_OUTGOING_COMMAND_ACCEPTED             = (7),
-  TRACE_TYPE_OUTGOING_COMMAND_DROPPED_STRUCTURALLY = (8),
-  TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_SOON     = (9),
-  TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_LATE     = (10),
-  TRACE_TYPE_OUTGOING_COMMAND_QUEUED               = (12),
-  TRACE_TYPE_OUTGOING_COMMAND_STARTED              = (13),
-  TRACE_TYPE_OUTGOING_COMMAND_FINISHED             = (14),
-  TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE           = (15),
-  TRACE_TYPE_TASK_SWITCHED_IN                      = (16),
-  TRACE_TYPE_TASK_SWITCHED_OUT                     = (17)
+  TRACE_TYPE_INCOMING_EVENT_RECEIVED               = (3),
+  TRACE_TYPE_INCOMING_EVENT_ACCEPTED               = (4),
+  TRACE_TYPE_INCOMING_EVENT_DROPPED_STRUCTURALLY   = (5),
+  TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_SOON       = (6),
+  TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_LATE       = (7),
+  TRACE_TYPE_OUTGOING_COMMAND_ACCEPTED             = (8),
+  TRACE_TYPE_OUTGOING_COMMAND_DROPPED_STRUCTURALLY = (9),
+  TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_SOON     = (10),
+  TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_LATE     = (11),
+  TRACE_TYPE_OUTGOING_COMMAND_QUEUED               = (13),
+  TRACE_TYPE_OUTGOING_COMMAND_STARTED              = (14),
+  TRACE_TYPE_OUTGOING_COMMAND_FINISHED             = (15),
+  TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE           = (16),
+  TRACE_TYPE_TASK_SWITCHED_IN                      = (17),
+  TRACE_TYPE_TASK_SWITCHED_OUT                     = (18),
 };
 
 struct Trace 
@@ -468,9 +442,6 @@ struct TraceQueue
   _Atomic(TraceQueueIdx_t) head;
   _Atomic(TraceQueueIdx_t) tail;
 } traceQueue = { 0 };
-
-volatile bool usingNativeTraceTick = false;
-TaskHandle_t TaskTraceLoopHandle;
 
 bool TraceQueuePop(struct Trace **tracePtr)
 {
@@ -510,18 +481,22 @@ bool TraceQueuePush(const struct Trace *trace)
   }
 }
 
-__weak TraceTickType_t GetTraceTick()
+__weak TraceTickType_t GetTraceTickCount()
 {
-  usingNativeTraceTick = true;
   return (TraceTickType_t)xTaskGetTickCount();
 }
 
-__weak TickType_t GetTraceTickRate()
+__weak TraceTickType_t GetTraceTickCountFromISR()
 {
-  GetTraceTick();
-  configASSERT(usingNativeTraceTick);
-  return configTICK_RATE_HZ;
+  return (TraceTickType_t)xTaskGetTickCountFromISR();
 }
+
+__weak TraceTickType_t GetTraceTickRate()
+{
+  return (TraceTickType_t)configTICK_RATE_HZ;
+}
+
+TaskHandle_t TaskTraceLoopHandle;
 
 void TaskTraceLoop(void*)
 {
@@ -540,6 +515,7 @@ void TaskTraceLoop(void*)
         case TRACE_TYPE_NET_START_TICK:
           printf("%lu",  trace->data.startTick);
           break;
+        case TRACE_TYPE_INCOMING_EVENT_RECEIVED:
         case TRACE_TYPE_INCOMING_EVENT_ACCEPTED:
         case TRACE_TYPE_INCOMING_EVENT_DROPPED_STRUCTURALLY:
         case TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_SOON:
@@ -567,28 +543,39 @@ void TaskTraceLoop(void*)
   }
 }
 
-void TraceTickRate()
+static inline void TraceTickRate()
 {
   struct Trace trace = {
-    .traceTick = GetTraceTick(),
+    .traceTick = GetTraceTickCount(),
     .traceType = TRACE_TYPE_TICK_RATE 
   };
   TraceQueuePush(&trace);
 }
 
-void TraceNetStartTick(TickType_t startTick)
+static inline void TraceNetStartTick(TickType_t startTick)
 {
   struct Trace trace = {
-    .traceTick = GetTraceTick(),
+    .traceTick = GetTraceTickCount(),
     .traceType = TRACE_TYPE_NET_START_TICK,
     .data.startTick = startTick
   };
   TraceQueuePush(&trace);
 }
 
+static inline void TraceIncomingEventReceivedFromISR(EventIdx_t eventIdx, TickType_t eventTick)
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTickCountFromISR(),
+    .traceType = TRACE_TYPE_INCOMING_EVENT_RECEIVED,
+    .data.event.idx = eventIdx,
+    .data.event.tick = eventTick
+  };
+  TraceQueuePush(&trace);
+}
+
 void TraceNetUpdate(EventIdx_t eventIdx, TickType_t eventTick, bool isCommand, enum EventStatus eventStatus)
 {
-  const TraceTickType_t traceTick = GetTraceTick();
+  const TraceTickType_t traceTick = GetTraceTickCount();
   TraceType_t traceType;
 
   if (isCommand)
@@ -642,10 +629,10 @@ void TraceNetUpdate(EventIdx_t eventIdx, TickType_t eventTick, bool isCommand, e
   TraceQueuePush(&trace);
 }
 
-void TraceOutgoingCommandQueued(CommandIdx_t commandIdx, TickType_t eventTick)
+static inline void TraceOutgoingCommandQueued(CommandIdx_t commandIdx, TickType_t eventTick)
 {
   struct Trace trace = {
-    .traceTick = GetTraceTick(),
+    .traceTick = GetTraceTickCount(),
     .traceType = TRACE_TYPE_OUTGOING_COMMAND_QUEUED,
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick
@@ -653,10 +640,10 @@ void TraceOutgoingCommandQueued(CommandIdx_t commandIdx, TickType_t eventTick)
   TraceQueuePush(&trace);
 }
 
-void TraceOutgoingCommandStarted(CommandIdx_t commandIdx, TickType_t eventTick)
+static inline void TraceOutgoingCommandStarted(CommandIdx_t commandIdx, TickType_t eventTick)
 {
   struct Trace trace = {
-    .traceTick = GetTraceTick(),
+    .traceTick = GetTraceTickCount(),
     .traceType = TRACE_TYPE_OUTGOING_COMMAND_STARTED,
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick
@@ -664,10 +651,10 @@ void TraceOutgoingCommandStarted(CommandIdx_t commandIdx, TickType_t eventTick)
   TraceQueuePush(&trace);
 }
 
-void TraceOutgoingCommandFinished(CommandIdx_t commandIdx, TickType_t eventTick)
+static inline void TraceOutgoingCommandFinished(CommandIdx_t commandIdx, TickType_t eventTick)
 {
   struct Trace trace = {
-    .traceTick = GetTraceTick(),
+    .traceTick = GetTraceTickCount(),
     .traceType = TRACE_TYPE_OUTGOING_COMMAND_FINISHED,
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick
@@ -675,10 +662,10 @@ void TraceOutgoingCommandFinished(CommandIdx_t commandIdx, TickType_t eventTick)
   TraceQueuePush(&trace);
 }
 
-void TraceCommandNotChosenTooLate(CommandIdx_t commandIdx, TickType_t eventTick)
+static inline void TraceCommandNotChosenTooLate(CommandIdx_t commandIdx, TickType_t eventTick)
 {
   struct Trace trace = {
-    .traceTick = GetTraceTick(),
+    .traceTick = GetTraceTickCount(),
     .traceType = TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE,
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick
@@ -689,7 +676,7 @@ void TraceCommandNotChosenTooLate(CommandIdx_t commandIdx, TickType_t eventTick)
 void TraceTaskSwitchedIn()
 {
   struct Trace trace = {
-    .traceTick = GetTraceTick(),
+    .traceTick = GetTraceTickCountFromISR(),
     .traceType = TRACE_TYPE_TASK_SWITCHED_IN,
     /* TODO */
   };
@@ -699,7 +686,7 @@ void TraceTaskSwitchedIn()
 void TraceTaskSwitchedOut()
 {
   struct Trace trace = {
-    .traceTick = GetTraceTick(),
+    .traceTick = GetTraceTickCountFromISR(),
     .traceType = TRACE_TYPE_TASK_SWITCHED_OUT,
     /* TODO */
   };
@@ -710,6 +697,7 @@ void TraceTaskSwitchedOut()
 
 #define TraceTickRate() ((void)0)
 #define TraceNetStartTick(a) do { (void)a; } while (0)
+#define TraceIncomingEventReceivedFromISR(a, b) do { (void)a; (void)b; } while (0)
 #define TraceNetUpdate(a, b, c, d) do { (void)a; (void)b; (void)c; (void)d; } while (0)
 #define TraceOutgoingCommandQueued(a, b) do { (void)a; (void)b; } while (0)
 #define TraceOutgoingCommandStarted(a, b) do { (void)a; (void)b; } while (0)
@@ -719,6 +707,34 @@ void TraceTaskSwitchedIn() {};
 void TraceTaskSwitchedOut() {};
 
 #endif /* CORE_ENABLE_TRACE */
+
+
+/** Event queue, available to module input functions. **/
+
+QueueHandle_t EventQueue;
+
+static inline void NewIncomingEventISR(EventIdx_t eventIdx, TickType_t tick, BaseType_t *xHigherPriorityTaskWoken)
+{
+  TraceIncomingEventReceivedFromISR(eventIdx, tick);
+  struct TimeStampedEvent incomingEvent = { .idx = eventIdx, .tick = tick };
+  configASSERT(pdPASS == xQueueSendToBackFromISR(EventQueue, &incomingEvent, xHigherPriorityTaskWoken));
+}
+
+
+/** Module input interface functions. **/
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  const TickType_t tick = xTaskGetTickCountFromISR();
+  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+  switch (GPIO_Pin)
+  {
+    case BUTTON_1_Pin:
+      NewIncomingEventISR(EVENT_1, tick, &xHigherPriorityTaskWoken);
+      break;
+  }
+  portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
 
 
 /** Petri Net variables and update functions. **/
@@ -926,7 +942,7 @@ void DesControllerSetup(void)
 
 #ifdef CORE_ENABLE_TRACE
   configASSERT(pdPASS == xTaskCreate(TaskTraceLoop, CORE_TRACE_LOOP_TASK_NAME, CORE_TRACE_LOOP_TASK_SDEPTH, NULL, CORE_TRACE_LOOP_TASK_PRIORITY, &TaskTraceLoopHandle));
-#endif
+#endif /* CORE_ENABLE_TRACE */
 
   /* Module initialization. */
 

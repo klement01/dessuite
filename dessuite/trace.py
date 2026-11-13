@@ -4,6 +4,7 @@ import enum
 class TraceType(enum.IntEnum):
     TICK_RATE = enum.auto()
     NET_START_TICK = enum.auto()
+    INCOMING_EVENT_RECEIVED = enum.auto()
     INCOMING_EVENT_ACCEPTED = enum.auto()
     INCOMING_EVENT_DROPPED_STRUCTURALLY = enum.auto()
     INCOMING_EVENT_DROPPED_TOO_SOON = enum.auto()
