@@ -1,13 +1,13 @@
 #ifndef DES_CONTROLLER_H
 #define DES_CONTROLLER_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
 #include <stdint.h>
 
 typedef uint32_t TraceTickType_t;
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 void DesControllerSetup(void);
 

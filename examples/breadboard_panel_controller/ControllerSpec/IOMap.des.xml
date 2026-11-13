@@ -6,7 +6,6 @@
 			<TraceLoop>
 				<Enabled>True</Enabled>
 				<TraceQueueSize>32</TraceQueueSize>
-				<CustomTraceClock>True</CustomTraceClock>
 			</TraceLoop>
 		</Tasks>
 	</Core>

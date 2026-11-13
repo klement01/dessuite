@@ -205,11 +205,7 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         # Module includes and defines.
         ("MODULE_INCLUDES", module_includes_cw),  # TODO
         # User parameters.
-        ("CORE_ENABLE_TRACE", "true" if spec.core_settings.task_trace_loop.enabled else "false"),
-        (
-            "CORE_ENABLE_CUSTOM_TRACE_CLOCK",
-            "true" if spec.core_settings.task_trace_loop.custom_trace_clock else "false",
-        ),
+        ("CORE_ENABLE_TRACE", "" if spec.core_settings.task_trace_loop.enabled else "// "),
         ("CORE_EVENT_QUEUE_SIZE", spec.core_settings.event_queue_size),
         ("CORE_EVENT_LOOP_TASK_NAME", f'"{spec.core_settings.task_event_loop.name}"'),
         ("CORE_EVENT_LOOP_TASK_SDEPTH", spec.core_settings.task_event_loop.stack_depth),
@@ -249,6 +245,8 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         ("TRACE_TYPE_OUTGOING_COMMAND_STARTED", TraceType.OUTGOING_COMMAND_STARTED),
         ("TRACE_TYPE_OUTGOING_COMMAND_FINISHED", TraceType.OUTGOING_COMMAND_FINISHED),
         ("TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE", TraceType.COMMAND_NOT_CHOSEN_TOO_LATE),
+        ("TRACE_TYPE_TASK_SWITCHED_IN", TraceType.TASK_SWITCHED_IN),
+        ("TRACE_TYPE_TASK_SWITCHED_OUT", TraceType.TASK_SWITCHED_OUT),
         # Core data.
         ("CORE_COMMAND_HANDLER_FUNCTIONS", command_handler_cw),
         ("CORE_COMMAND_HANDLER_VECTOR", f",\n{' ' * INDENT}".join(command_handler_vector_entries)),

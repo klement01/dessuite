@@ -1,8 +1,16 @@
 #include "des_controller.h"
 
+#define CORE_ENABLE_TRACE
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#ifdef CORE_ENABLE_TRACE
+#include <stdatomic.h>
+#include <stdio.h>
+#include <string.h>
+#endif /* CORE_ENABLE_TRACE */
 
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
@@ -12,18 +20,6 @@
 #include "queue.h"
 #include "semphr.h"
 #include "timers.h"
-
-#if (true)
-#define CORE_ENABLE_TRACE
-#endif
-
-#if (true)
-#define CORE_ENABLE_CUSTOM_TRACE_CLOCK
-#endif
-
-#ifdef CORE_ENABLE_TRACE
-#include <stdio.h>
-#endif
 
 /** Module includes and defines. **/
 
@@ -44,14 +40,12 @@
 #define CORE_SCHEDULE_COMMAND_TASK_PRIORITY (configMAX_PRIORITIES - 2)
 
 #ifdef CORE_ENABLE_TRACE
-
 #define CORE_TRACE_QUEUE_SIZE (32)
 
 #define CORE_TRACE_LOOP_TASK_NAME ("DessuiteTraceLoop")
 #define CORE_TRACE_LOOP_TASK_SDEPTH (configMINIMAL_STACK_SIZE)
 #define CORE_TRACE_LOOP_TASK_PRIORITY (1)
-
-#endif
+#endif /* CORE_ENABLE_TRACE */
 
 /* Petri Net definition. */
 
@@ -84,13 +78,13 @@ enum EventIdx : EventIdx_t
   EVENT_SCHEDULED_COMMAND
 };
 
-struct RichEvent
+struct TimeStampedEvent
 {
   EventIdx_t idx;
   TickType_t tick;
 };
 
-struct RichCommand
+struct TimeStampedCommand
 {
   CommandIdx_t idx;
   TickType_t tick;
@@ -314,7 +308,7 @@ QueueHandle_t EventQueue;
 
 static inline void NewIncomingEventISR(EventIdx_t eventIdx, TickType_t tick, BaseType_t *xHigherPriorityTaskWoken)
 {
-  struct RichEvent incomingEvent = { .idx = eventIdx, .tick = tick };
+  struct TimeStampedEvent incomingEvent = { .idx = eventIdx, .tick = tick };
   configASSERT(pdPASS == xQueueSendToBackFromISR(EventQueue, &incomingEvent, xHigherPriorityTaskWoken));
 }
 
@@ -433,22 +427,8 @@ const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
 
 #ifdef CORE_ENABLE_TRACE
 
-volatile bool usingNativeTraceTick = false;
-
-__weak TraceTickType_t GetTraceTick()
-{
-  usingNativeTraceTick = true;
-  return (TraceTickType_t)xTaskGetTickCount();
-}
-
-__weak TickType_t GetTraceTickRate()
-{
-  GetTraceTick();
-  configASSERT(usingNativeTraceTick);
-  return configTICK_RATE_HZ;
-}
-
 typedef uint8_t TraceType_t;
+typedef uint8_t TraceQueueIdx_t;
 
 enum TraceType : TraceType_t
 {
@@ -465,81 +445,148 @@ enum TraceType : TraceType_t
   TRACE_TYPE_OUTGOING_COMMAND_QUEUED               = (12),
   TRACE_TYPE_OUTGOING_COMMAND_STARTED              = (13),
   TRACE_TYPE_OUTGOING_COMMAND_FINISHED             = (14),
-  TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE           = (15)
+  TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE           = (15),
+  TRACE_TYPE_TASK_SWITCHED_IN                      = (16),
+  TRACE_TYPE_TASK_SWITCHED_OUT                     = (17)
 };
 
-struct Trace
+struct Trace 
 {
   TraceTickType_t traceTick;
   TraceType_t traceType;
   union {
-    struct RichEvent event;
+    struct TimeStampedEvent event;
     TickType_t startTick;
+    /* TODO */
   } data;
 };
 
+struct TraceQueue
+{
+  // https://github.com/QuantumLeaps/lock-free-ring-buffer
+  struct Trace data[CORE_TRACE_QUEUE_SIZE];
+  _Atomic(TraceQueueIdx_t) head;
+  _Atomic(TraceQueueIdx_t) tail;
+} traceQueue = { 0 };
+
+volatile bool usingNativeTraceTick = false;
 TaskHandle_t TaskTraceLoopHandle;
-QueueHandle_t TraceQueue;
+
+bool TraceQueuePop(struct Trace **tracePtr)
+{
+  TraceQueueIdx_t tail = atomic_load_explicit(&traceQueue.tail, memory_order_relaxed);
+  const TraceQueueIdx_t head = atomic_load_explicit(&traceQueue.head, memory_order_acquire);
+  if (head != tail)
+  {
+    *tracePtr = &traceQueue.data[tail];
+    ++tail;
+    if (tail >= CORE_TRACE_QUEUE_SIZE)
+      tail = 0U;
+    atomic_store_explicit(&traceQueue.tail, tail, memory_order_release);
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
+bool TraceQueuePush(const struct Trace *trace)
+{
+  TraceQueueIdx_t head = atomic_load_explicit(&traceQueue.head, memory_order_relaxed) + 1U;
+  if (head >= CORE_TRACE_QUEUE_SIZE)
+    head = 0;
+
+  const TraceQueueIdx_t tail = atomic_load_explicit(&traceQueue.tail, memory_order_acquire);
+  if (head != tail)
+  {
+    memcpy(&traceQueue.data[atomic_load_explicit(&traceQueue.head, memory_order_relaxed)], trace, sizeof(struct Trace));
+    atomic_store_explicit(&traceQueue.head, head, memory_order_release);
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
+__weak TraceTickType_t GetTraceTick()
+{
+  usingNativeTraceTick = true;
+  return (TraceTickType_t)xTaskGetTickCount();
+}
+
+__weak TickType_t GetTraceTickRate()
+{
+  GetTraceTick();
+  configASSERT(usingNativeTraceTick);
+  return configTICK_RATE_HZ;
+}
 
 void TaskTraceLoop(void*)
 {
   for (;;)
   {
-    struct Trace trace;
-    configASSERT(pdPASS == xQueueReceive(TraceQueue, &trace, portMAX_DELAY));
-
-    printf("%lu\t%u\t", trace.traceTick, trace.traceType);
-
-    switch (trace.traceType)
+    struct Trace *trace;
+    while (TraceQueuePop(&trace))
     {
-      case TRACE_TYPE_TICK_RATE:
-        printf("%lu\t%lu", (TraceTickType_t)configTICK_RATE_HZ, GetTraceTickRate());
-        break;
-      case TRACE_TYPE_NET_START_TICK:
-        printf("%lu",  trace.data.startTick);
-        break;
-      case TRACE_TYPE_INCOMING_EVENT_ACCEPTED:
-      case TRACE_TYPE_INCOMING_EVENT_DROPPED_STRUCTURALLY:
-      case TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_SOON:
-      case TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_LATE:
-      case TRACE_TYPE_OUTGOING_COMMAND_ACCEPTED:
-      case TRACE_TYPE_OUTGOING_COMMAND_DROPPED_STRUCTURALLY:
-      case TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_SOON:
-      case TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_LATE:
-      case TRACE_TYPE_OUTGOING_COMMAND_QUEUED:
-      case TRACE_TYPE_OUTGOING_COMMAND_STARTED:
-      case TRACE_TYPE_OUTGOING_COMMAND_FINISHED:
-      case TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE:
-        printf("%lu\t%u", trace.data.event.tick, trace.data.event.idx);
-        break;
-      default:
-        configASSERT(false);
-    }
+      printf("%lu\t%u\t", trace->traceTick, trace->traceType);
 
-    printf("\n");
+      switch (trace->traceType)
+      {
+        case TRACE_TYPE_TICK_RATE:
+          printf("%lu\t%lu", (TraceTickType_t)configTICK_RATE_HZ, GetTraceTickRate());
+          break;
+        case TRACE_TYPE_NET_START_TICK:
+          printf("%lu",  trace->data.startTick);
+          break;
+        case TRACE_TYPE_INCOMING_EVENT_ACCEPTED:
+        case TRACE_TYPE_INCOMING_EVENT_DROPPED_STRUCTURALLY:
+        case TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_SOON:
+        case TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_LATE:
+        case TRACE_TYPE_OUTGOING_COMMAND_ACCEPTED:
+        case TRACE_TYPE_OUTGOING_COMMAND_DROPPED_STRUCTURALLY:
+        case TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_SOON:
+        case TRACE_TYPE_OUTGOING_COMMAND_DROPPED_TOO_LATE:
+        case TRACE_TYPE_OUTGOING_COMMAND_QUEUED:
+        case TRACE_TYPE_OUTGOING_COMMAND_STARTED:
+        case TRACE_TYPE_OUTGOING_COMMAND_FINISHED:
+        case TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE:
+          printf("%lu\t%u", trace->data.event.tick, trace->data.event.idx);
+          break;
+        case TRACE_TYPE_TASK_SWITCHED_IN:
+        case TRACE_TYPE_TASK_SWITCHED_OUT:
+          /* TODO */
+          break;
+        default:
+          configASSERT(false);
+      }
+
+      printf("\n");
+    }
   }
 }
 
-static inline void TraceTickRate()
+void TraceTickRate()
 {
   struct Trace trace = {
     .traceTick = GetTraceTick(),
     .traceType = TRACE_TYPE_TICK_RATE 
   };
-  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
+  TraceQueuePush(&trace);
 }
 
-static inline void TraceNetStartTick(TickType_t startTick)
+void TraceNetStartTick(TickType_t startTick)
 {
   struct Trace trace = {
     .traceTick = GetTraceTick(),
     .traceType = TRACE_TYPE_NET_START_TICK,
     .data.startTick = startTick
   };
-  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
+  TraceQueuePush(&trace);
 }
 
-static inline void TraceNetUpdate(EventIdx_t eventIdx, TickType_t eventTick, bool isCommand, enum EventStatus eventStatus)
+void TraceNetUpdate(EventIdx_t eventIdx, TickType_t eventTick, bool isCommand, enum EventStatus eventStatus)
 {
   const TraceTickType_t traceTick = GetTraceTick();
   TraceType_t traceType;
@@ -592,10 +639,10 @@ static inline void TraceNetUpdate(EventIdx_t eventIdx, TickType_t eventTick, boo
     .data.event.tick = eventTick
   };
 
-  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
+  TraceQueuePush(&trace);
 }
 
-static inline void TraceOutgoingCommandQueued(CommandIdx_t commandIdx, TickType_t eventTick)
+void TraceOutgoingCommandQueued(CommandIdx_t commandIdx, TickType_t eventTick)
 {
   struct Trace trace = {
     .traceTick = GetTraceTick(),
@@ -603,10 +650,10 @@ static inline void TraceOutgoingCommandQueued(CommandIdx_t commandIdx, TickType_
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick
   };
-  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
+  TraceQueuePush(&trace);
 }
 
-static inline void TraceOutgoingCommandStarted(CommandIdx_t commandIdx, TickType_t eventTick)
+void TraceOutgoingCommandStarted(CommandIdx_t commandIdx, TickType_t eventTick)
 {
   struct Trace trace = {
     .traceTick = GetTraceTick(),
@@ -614,10 +661,10 @@ static inline void TraceOutgoingCommandStarted(CommandIdx_t commandIdx, TickType
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick
   };
-  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
+  TraceQueuePush(&trace);
 }
 
-static inline void TraceOutgoingCommandFinished(CommandIdx_t commandIdx, TickType_t eventTick)
+void TraceOutgoingCommandFinished(CommandIdx_t commandIdx, TickType_t eventTick)
 {
   struct Trace trace = {
     .traceTick = GetTraceTick(),
@@ -625,10 +672,10 @@ static inline void TraceOutgoingCommandFinished(CommandIdx_t commandIdx, TickTyp
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick
   };
-  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
+  TraceQueuePush(&trace);
 }
 
-static inline void TraceCommandNotChosenTooLate(CommandIdx_t commandIdx, TickType_t eventTick)
+void TraceCommandNotChosenTooLate(CommandIdx_t commandIdx, TickType_t eventTick)
 {
   struct Trace trace = {
     .traceTick = GetTraceTick(),
@@ -636,20 +683,42 @@ static inline void TraceCommandNotChosenTooLate(CommandIdx_t commandIdx, TickTyp
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick
   };
-  configASSERT(pdPASS == xQueueSendToBack(TraceQueue, &trace, portMAX_DELAY));
+  TraceQueuePush(&trace);
+}
+
+void TraceTaskSwitchedIn()
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTick(),
+    .traceType = TRACE_TYPE_TASK_SWITCHED_IN,
+    /* TODO */
+  };
+  TraceQueuePush(&trace);
+}
+
+void TraceTaskSwitchedOut()
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTick(),
+    .traceType = TRACE_TYPE_TASK_SWITCHED_OUT,
+    /* TODO */
+  };
+  TraceQueuePush(&trace);
 }
 
 #else
 
-#define TraceTickRate(...) ((void)0)
-#define TraceNetStartTick(...) ((void)0)
-#define TraceNetUpdate(...) ((void)0)
-#define TraceOutgoingCommandQueued(...) ((void)0)
-#define TraceOutgoingCommandStarted(...) ((void)0)
-#define TraceOutgoingCommandFinished(...) ((void)0)
-#define TraceCommandNotChosenTooLate(...) ((void)0)
+#define TraceTickRate() ((void)0)
+#define TraceNetStartTick(a) do { (void)a; } while (0)
+#define TraceNetUpdate(a, b, c, d) do { (void)a; (void)b; (void)c; (void)d; } while (0)
+#define TraceOutgoingCommandQueued(a, b) do { (void)a; (void)b; } while (0)
+#define TraceOutgoingCommandStarted(a, b) do { (void)a; (void)b; } while (0)
+#define TraceOutgoingCommandFinished(a, b) do { (void)a; (void)b; } while (0)
+#define TraceCommandNotChosenTooLate(a, b) do { (void)a; (void)b; } while (0)
+void TraceTaskSwitchedIn() {};
+void TraceTaskSwitchedOut() {};
 
-#endif
+#endif /* CORE_ENABLE_TRACE */
 
 
 /** Petri Net variables and update functions. **/
@@ -719,7 +788,7 @@ enum EventStatus NetTryUpdate(EventIdx_t eventIdx, TickType_t tick)
   return EVENT_STATUS_ENABLED;
 }
 
-bool NetGetNextEnabledCommand(TickType_t currentTick, struct RichCommand *command)
+bool NetGetNextEnabledCommand(TickType_t currentTick, struct TimeStampedCommand *command)
 {
   command->tick = portMAX_DELAY;
 
@@ -776,7 +845,7 @@ void TaskEventLoop(void*)
     {
       // Process all queued events.
       {
-        struct RichEvent event;
+        struct TimeStampedEvent event;
         while (pdPASS == xQueueReceive(EventQueue, &event, 0))
         {
           if (event.idx == EVENT_SCHEDULED_COMMAND)
@@ -788,13 +857,13 @@ void TaskEventLoop(void*)
       }
 
       // Get next enabled command or break if there isn't one.
-      struct RichCommand command;
+      struct TimeStampedCommand command;
       if (!NetGetNextEnabledCommand(xTaskGetTickCount(), &command))
         break;
 
       // Return to event processing if a new event arrived while choosing command.
       {
-        struct RichEvent event;
+        struct TimeStampedEvent event;
         if (pdPASS == xQueuePeek(EventQueue, &event, 0))
           continue;
       }
@@ -825,7 +894,7 @@ void TaskEventLoop(void*)
 
     // Wait for an incoming event.
     {
-      struct RichEvent event;
+      struct TimeStampedEvent event;
       configASSERT(pdPASS == xQueuePeek(EventQueue, &event, portMAX_DELAY));
     }
 
@@ -840,7 +909,7 @@ void TimerScheduleCommand(TimerHandle_t timerHandle)
     // Prevent execution by user code.
     return;
 
-  struct RichEvent scheduledCommand = { .idx = EVENT_SCHEDULED_COMMAND };
+  struct TimeStampedEvent scheduledCommand = { .idx = EVENT_SCHEDULED_COMMAND };
   configASSERT(pdPASS == xQueueSendToBack(EventQueue, &scheduledCommand, 0));
 }
 
@@ -850,13 +919,12 @@ void TimerScheduleCommand(TimerHandle_t timerHandle)
 void DesControllerSetup(void)
 {
   /* Core initialization. */
-  configASSERT(NULL != (EventQueue = xQueueCreate(CORE_EVENT_QUEUE_SIZE, sizeof(struct RichEvent))));
+  configASSERT(NULL != (EventQueue = xQueueCreate(CORE_EVENT_QUEUE_SIZE, sizeof(struct TimeStampedEvent))));
 
   configASSERT(pdPASS == xTaskCreate(TaskEventLoop, CORE_EVENT_LOOP_TASK_NAME, CORE_EVENT_LOOP_TASK_SDEPTH, NULL, CORE_EVENT_LOOP_TASK_PRIORITY, &TaskEventLoopHandle));
   configASSERT(NULL != (TimerScheduleCommandHandle = xTimerCreate(CORE_SCHEDULE_COMMAND_TASK_NAME, portMAX_DELAY, pdFALSE, NULL, TimerScheduleCommand)));
 
 #ifdef CORE_ENABLE_TRACE
-  configASSERT(NULL != (TraceQueue = xQueueCreate(CORE_TRACE_QUEUE_SIZE, sizeof(struct Trace))));
   configASSERT(pdPASS == xTaskCreate(TaskTraceLoop, CORE_TRACE_LOOP_TASK_NAME, CORE_TRACE_LOOP_TASK_SDEPTH, NULL, CORE_TRACE_LOOP_TASK_PRIORITY, &TaskTraceLoopHandle));
 #endif
 
