@@ -28,7 +28,6 @@
 /** Module includes and defines. **/
 
 #include "main.h"
-#include "trace_tick.h"
 
 
 /** Core data (defines, types and constants). **/
@@ -434,14 +433,20 @@ const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
 
 #ifdef CORE_ENABLE_TRACE
 
-#ifndef CORE_ENABLE_CUSTOM_TRACE_CLOCK
-#define TRACE_TICK_RATE configTICK_RATE_HZ
-typedef uint32_t TraceTickType_t;
-static inline TraceTickType_t GetTraceTick()
+volatile bool usingNativeTraceTick = false;
+
+__weak TraceTickType_t GetTraceTick()
 {
+  usingNativeTraceTick = true;
   return (TraceTickType_t)xTaskGetTickCount();
 }
-#endif
+
+__weak TickType_t GetTraceTickRate()
+{
+  GetTraceTick();
+  configASSERT(usingNativeTraceTick);
+  return configTICK_RATE_HZ;
+}
 
 typedef uint8_t TraceType_t;
 
@@ -488,7 +493,7 @@ void TaskTraceLoop(void*)
     switch (trace.traceType)
     {
       case TRACE_TYPE_TICK_RATE:
-        printf("%lu\t%lu", (TraceTickType_t)configTICK_RATE_HZ, (TraceTickType_t)TRACE_TICK_RATE);
+        printf("%lu\t%lu", (TraceTickType_t)configTICK_RATE_HZ, GetTraceTickRate());
         break;
       case TRACE_TYPE_NET_START_TICK:
         printf("%lu",  trace.data.startTick);

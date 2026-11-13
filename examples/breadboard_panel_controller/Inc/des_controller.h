@@ -5,6 +5,10 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#include <stdint.h>
+
+typedef uint32_t TraceTickType_t;
+
 void DesControllerSetup(void);
 
 #ifdef __cplusplus

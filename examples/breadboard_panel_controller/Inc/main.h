@@ -57,22 +57,11 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define LED_BUILTIN_Pin GPIO_PIN_13
-#define LED_BUILTIN_GPIO_Port GPIOC
 #define LED_WHITE_1_Pin GPIO_PIN_4
 #define LED_WHITE_1_GPIO_Port GPIOA
 #define BUTTON_1_Pin GPIO_PIN_5
 #define BUTTON_1_GPIO_Port GPIOA
 #define BUTTON_1_EXTI_IRQn EXTI9_5_IRQn
-#define LED_WHITE_2_Pin GPIO_PIN_6
-#define LED_WHITE_2_GPIO_Port GPIOA
-#define BUTTON_2_Pin GPIO_PIN_7
-#define BUTTON_2_GPIO_Port GPIOA
-#define BUTTON_2_EXTI_IRQn EXTI9_5_IRQn
-#define LED_GREEN_2_Pin GPIO_PIN_15
-#define LED_GREEN_2_GPIO_Port GPIOA
-#define LED_RED_2_Pin GPIO_PIN_4
-#define LED_RED_2_GPIO_Port GPIOB
 #define LED_GREEN_1_Pin GPIO_PIN_5
 #define LED_GREEN_1_GPIO_Port GPIOB
 #define LED_RED_1_Pin GPIO_PIN_6
