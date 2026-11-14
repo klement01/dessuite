@@ -23,7 +23,13 @@
 
 /** Module includes and defines. **/
 
+/* START MODULE CUSTOM INCLUDE INCLUDES */
 #include "main.h"
+/* END MODULE CUSTOM INCLUDE INCLUDES */
+/* START MODULE HAL GPIO INCLUDES */
+/* END MODULE HAL GPIO INCLUDES */
+/* START MODULE HAL UART INCLUDES */
+/* END MODULE HAL UART INCLUDES */
 
 
 /** Core data (defines, types and constants). **/
@@ -290,26 +296,17 @@ const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
 };
 
 
-/** Module data (defines, types and constants). **/
-
-
-
-
 /** Module variables. **/
 
+/* START MODULE CUSTOM INCLUDE VARIABLES */
+/* END MODULE CUSTOM INCLUDE VARIABLES */
+/* START MODULE HAL GPIO VARIABLES */
+/* END MODULE HAL GPIO VARIABLES */
+/* START MODULE HAL UART VARIABLES */
 extern UART_HandleTypeDef huart1;
 uint8_t huart1_recv_buffer;
 uint8_t huart1_transmit_buffer;
-
-
-/** Module function definitions. **/
-
-
-
-
-/** Module output interface functions. **/
-
-
+/* END MODULE HAL UART VARIABLES */
 
 
 /** Core command handler. */
@@ -322,42 +319,84 @@ struct Command
 
 void EVENT_6_COMMAND_HANDLER(void)
 {
+  /* START MODULE CUSTOM INCLUDE ACTIONS */
+  /* END MODULE CUSTOM INCLUDE ACTIONS */
+  /* START MODULE HAL GPIO ACTIONS */
+  /* END MODULE HAL GPIO ACTIONS */
+  /* START MODULE HAL UART ACTIONS */
+  /* END MODULE HAL UART ACTIONS */
 }
 void EVENT_9_COMMAND_HANDLER(void)
 {
+  /* START MODULE CUSTOM INCLUDE ACTIONS */
+  /* END MODULE CUSTOM INCLUDE ACTIONS */
+  /* START MODULE HAL GPIO ACTIONS */
   HAL_GPIO_WritePin(LED_GREEN_1_GPIO_Port, LED_GREEN_1_Pin, GPIO_PIN_RESET);
+  /* END MODULE HAL GPIO ACTIONS */
+  /* START MODULE HAL UART ACTIONS */
   huart1_transmit_buffer = 7;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+  /* END MODULE HAL UART ACTIONS */
 }
 void EVENT_8_COMMAND_HANDLER(void)
 {
+  /* START MODULE CUSTOM INCLUDE ACTIONS */
+  /* END MODULE CUSTOM INCLUDE ACTIONS */
+  /* START MODULE HAL GPIO ACTIONS */
   HAL_GPIO_WritePin(LED_GREEN_1_GPIO_Port, LED_GREEN_1_Pin, GPIO_PIN_SET);
+  /* END MODULE HAL GPIO ACTIONS */
+  /* START MODULE HAL UART ACTIONS */
   huart1_transmit_buffer = 8;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+  /* END MODULE HAL UART ACTIONS */
 }
 void EVENT_0_COMMAND_HANDLER(void)
 {
+  /* START MODULE CUSTOM INCLUDE ACTIONS */
+  /* END MODULE CUSTOM INCLUDE ACTIONS */
+  /* START MODULE HAL GPIO ACTIONS */
   HAL_GPIO_WritePin(LED_GREEN_2_GPIO_Port, LED_GREEN_2_Pin, GPIO_PIN_RESET);
+  /* END MODULE HAL GPIO ACTIONS */
+  /* START MODULE HAL UART ACTIONS */
   huart1_transmit_buffer = 9;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+  /* END MODULE HAL UART ACTIONS */
 }
 void EVENT_1_COMMAND_HANDLER(void)
 {
+  /* START MODULE CUSTOM INCLUDE ACTIONS */
+  /* END MODULE CUSTOM INCLUDE ACTIONS */
+  /* START MODULE HAL GPIO ACTIONS */
   HAL_GPIO_WritePin(LED_GREEN_2_GPIO_Port, LED_GREEN_2_Pin, GPIO_PIN_SET);
+  /* END MODULE HAL GPIO ACTIONS */
+  /* START MODULE HAL UART ACTIONS */
   huart1_transmit_buffer = 10;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+  /* END MODULE HAL UART ACTIONS */
 }
 void EVENT_5_COMMAND_HANDLER(void)
 {
+  /* START MODULE CUSTOM INCLUDE ACTIONS */
+  /* END MODULE CUSTOM INCLUDE ACTIONS */
+  /* START MODULE HAL GPIO ACTIONS */
   HAL_GPIO_WritePin(LED_RED_1_GPIO_Port, LED_RED_1_Pin, GPIO_PIN_RESET);
+  /* END MODULE HAL GPIO ACTIONS */
+  /* START MODULE HAL UART ACTIONS */
   huart1_transmit_buffer = 11;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+  /* END MODULE HAL UART ACTIONS */
 }
 void EVENT_4_COMMAND_HANDLER(void)
 {
+  /* START MODULE CUSTOM INCLUDE ACTIONS */
+  /* END MODULE CUSTOM INCLUDE ACTIONS */
+  /* START MODULE HAL GPIO ACTIONS */
   HAL_GPIO_WritePin(LED_RED_1_GPIO_Port, LED_RED_1_Pin, GPIO_PIN_SET);
+  /* END MODULE HAL GPIO ACTIONS */
+  /* START MODULE HAL UART ACTIONS */
   huart1_transmit_buffer = 12;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+  /* END MODULE HAL UART ACTIONS */
 }
 
 const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
@@ -710,6 +749,11 @@ static inline void NewIncomingEventISR(EventIdx_t eventIdx, TickType_t tick, Bas
 
 /** Module input interface functions. **/
 
+/* START MODULE CUSTOM INCLUDE INPUT INTERFACE FUNCTIONS */
+/* END MODULE CUSTOM INCLUDE INPUT INTERFACE FUNCTIONS */
+/* START MODULE HAL GPIO INPUT INTERFACE FUNCTIONS */
+/* END MODULE HAL GPIO INPUT INTERFACE FUNCTIONS */
+/* START MODULE HAL UART INPUT INTERFACE FUNCTIONS */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   const TickType_t tick = xTaskGetTickCountFromISR();
@@ -742,6 +786,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   HAL_UART_Receive_IT(&huart1, &huart1_recv_buffer, sizeof(huart1_recv_buffer));
   portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
+/* END MODULE HAL UART INPUT INTERFACE FUNCTIONS */
 
 
 /** Petri Net variables and update functions. **/
@@ -955,7 +1000,13 @@ void DesControllerSetup(void)
 #endif /* CORE_ENABLE_TRACE */
 
   /* Module initialization. */
+  /* START MODULE CUSTOM INCLUDE INIT FUNCTION CALLS */
+  /* END MODULE CUSTOM INCLUDE INIT FUNCTION CALLS */
+  /* START MODULE HAL GPIO INIT FUNCTION CALLS */
+  /* END MODULE HAL GPIO INIT FUNCTION CALLS */
+  /* START MODULE HAL UART INIT FUNCTION CALLS */
   HAL_UART_Receive_IT(&huart1, &huart1_recv_buffer, sizeof(huart1_recv_buffer));
+  /* END MODULE HAL UART INIT FUNCTION CALLS */
 
   /* Task metadata. */
 #ifdef CORE_ENABLE_TRACE
