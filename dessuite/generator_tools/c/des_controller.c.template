@@ -266,12 +266,14 @@ TaskHandle_t TaskTraceLoopHandle;
 
 void TaskTraceLoop(void*)
 {
+  uint32_t traceCount = 0;
   for (;;)
   {
     struct Trace *trace;
     while (TraceQueuePop(&trace))
     {
-      printf("%lu\t%u", trace->traceTick, trace->traceType);
+      printf("%lu\t%lu\t%u", traceCount, trace->traceTick, trace->traceType);
+      ++traceCount;
 
       switch (trace->traceType)
       {
