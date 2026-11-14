@@ -5,12 +5,14 @@ from csnake import CodeWriter, Function
 
 from dessuite.generator_tools import core
 from dessuite.generator_tools.modules import common
+from dessuite.generator_tools.util import key_is_truthy
 
 
 @dataclass
 class ModuleHalUartSettings:
     handle: str | None = None
     message_size: int = 1
+    auto_enumerate: bool = False
 
     @property
     def recv_buffer(self) -> str:
@@ -23,37 +25,54 @@ class ModuleHalUartSettings:
     def update_from_element_tree(self, et: ElementTree.Element[str]):
         if (m := et.find("Handle")) is not None:
             self.handle = m.text
-        if (m := et.find("MessageSize")) is not None:
-            self.message_size = int(m.text)  # pyright: ignore[reportArgumentType]
-
-        if self.message_size != 1:
-            raise ValueError("hal_uart: MessageSize!=1 is not supported yet")
+        if (m := et.find("AutoEnumerate")) is not None:
+            self.auto_enumerate = key_is_truthy(m.text, default=True)
 
 
 @dataclass
 class ModuleHalUart(common.GeneratorModule):
     settings: ModuleHalUartSettings = field(default_factory=ModuleHalUartSettings)
 
-    event_index_acc: int = 0
+    event_auto_enumerate_counter: int = 0
     recv_triggers: dict[int, core.CoreEvent] = field(default_factory=dict)
     transmit_actions: dict[core.CoreEvent, list[int]] = field(default_factory=dict)
 
     def name(self):
         return "HAL UART"
 
-    def update_settings_from_element_tree(self, et: ElementTree.Element[str]):
+    def parse_settings_from_element_tree(self, et: ElementTree.Element[str]):
         self.settings.update_from_element_tree(et)
 
-    def add_trigger(self, core_event: core.CoreEvent, et: ElementTree.Element[str]):
-        for _ in et.iterfind("Receive"):
-            self.recv_triggers[self.event_index_acc] = core_event
-            self.event_index_acc += 1
+    def register_trigger(self, core_event: core.CoreEvent, et: ElementTree.Element[str]):
+        for m in et.iterfind("Receive"):
+            if self.settings.auto_enumerate:
+                idx = self.event_auto_enumerate_counter
+                self.event_auto_enumerate_counter += 1
+            else:
+                if m.text is None:
+                    raise ValueError("missing receive value")
+                try:
+                    idx = int(m.text)
+                except ValueError:
+                    raise ValueError(f"invalid receive value: {m.text}")
 
-    def add_action(self, core_event: core.CoreEvent, et: ElementTree.Element[str]):
+            self.recv_triggers[idx] = core_event
+
+    def register_action(self, core_event: core.CoreEvent, et: ElementTree.Element[str]):
         event_actions = []
-        for _ in et.iterfind("Transmit"):
-            event_actions.append(self.event_index_acc)
-            self.event_index_acc += 1
+        for m in et.iterfind("Transmit"):
+            if self.settings.auto_enumerate:
+                idx = self.event_auto_enumerate_counter
+                self.event_auto_enumerate_counter += 1
+            else:
+                if m.text is None:
+                    raise ValueError("missing transmit value")
+                try:
+                    idx = int(m.text)
+                except ValueError:
+                    raise ValueError(f"invalid transmit value: {m.text}")
+
+            event_actions.append(idx)
         if event_actions:
             self.transmit_actions[core_event] = event_actions
 
@@ -62,12 +81,12 @@ class ModuleHalUart(common.GeneratorModule):
         writer.add_line(f"uint8_t {self.settings.recv_buffer};")
         writer.add_line(f"uint8_t {self.settings.transmit_buffer};")
 
-    def write_init_function_calls(self, writer: CodeWriter):
+    def write_init(self, writer: CodeWriter):
         writer.add_line(
             f"HAL_UART_Receive_IT(&{self.settings.handle}, &{self.settings.recv_buffer}, sizeof({self.settings.recv_buffer}));"
         )
 
-    def write_input_interface_functions(self, writer: CodeWriter):
+    def write_triggers(self, writer: CodeWriter):
         if len(self.recv_triggers) == 0:
             return
 
@@ -84,7 +103,7 @@ class ModuleHalUart(common.GeneratorModule):
         for value, core_event in self.recv_triggers.items():
             writer.add_line(f"case {value}:")
             writer.indent()
-            writer.add_line(f"NewIncomingEventISR({core_event.event_name}, tick, &xHigherPriorityTaskWoken);")
+            writer.add_line(f"QueueNewIncomingEventFromISR({core_event.event_name}, tick, &xHigherPriorityTaskWoken);")
             writer.add_switch_break()
 
         writer.close_brace()

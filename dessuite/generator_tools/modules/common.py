@@ -13,16 +13,13 @@ class GeneratorModule(abc.ABC):
     def name(self) -> str:
         pass
 
-    def update_settings_from_element_tree(self, et: ElementTree.Element[str]):
+    def parse_settings_from_element_tree(self, et: ElementTree.Element[str]):
         pass
 
-    def add_trigger(self, core_event: core.CoreEvent, et: ElementTree.Element[str]):
+    def register_trigger(self, core_event: core.CoreEvent, et: ElementTree.Element[str]):
         pass
 
-    def add_action(self, core_event: core.CoreEvent, et: ElementTree.Element[str]):
-        pass
-
-    def write_actions(self, core_event: core.CoreEvent, function: Function):
+    def register_action(self, core_event: core.CoreEvent, et: ElementTree.Element[str]):
         pass
 
     def write_includes(self, writer: CodeWriter):
@@ -31,8 +28,11 @@ class GeneratorModule(abc.ABC):
     def write_variables(self, writer: CodeWriter):
         pass
 
-    def write_input_interface_functions(self, writer: CodeWriter):
+    def write_actions(self, core_event: core.CoreEvent, function: Function):
         pass
 
-    def write_init_function_calls(self, writer: CodeWriter):
+    def write_triggers(self, writer: CodeWriter):
+        pass
+
+    def write_init(self, writer: CodeWriter):
         pass

@@ -1,10 +1,11 @@
 <Dessuite>
 	<Core>
 		<!-- Core settings -->
-		<EventQueueSize>32</EventQueueSize>
+		<EventQueueSize>8</EventQueueSize>
 		<Tasks>
 			<TraceLoop>
-				<Enabled>False</Enabled>
+				<Enabled>True</Enabled>
+				<TraceQueueSize>16</TraceQueueSize>
 			</TraceLoop>
 		</Tasks>
 	</Core>
@@ -24,7 +25,7 @@
 			<Controllable/>
 			<Actions>
 				<HalUart>
-					<Transmit/>
+					<Transmit>10</Transmit>
 				</HalUart>
 				<HalGpio>
 					<Set>LED</Set>
@@ -35,10 +36,10 @@
 			<Name>T2</Name>
 			<Triggers>
 				<HalUart>
-					<Receive/>
+					<Receive>20</Receive>
 				</HalUart>
 				<HalGpio>
-					<Interrupt>BUTTON_1</Interrupt>
+					<Interrupt>BUTTON</Interrupt>
 				</HalGpio>
 			</Triggers>
 		</Event>

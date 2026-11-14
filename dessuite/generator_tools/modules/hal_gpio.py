@@ -42,20 +42,20 @@ class ModuleHalGpio(common.GeneratorModule):
     def name(self):
         return "HAL GPIO"
 
-    def update_settings_from_element_tree(self, et: ElementTree.Element[str]):
+    def parse_settings_from_element_tree(self, et: ElementTree.Element[str]):
         self.settings.update_from_element_tree(et)
 
-    def add_trigger(self, core_event: core.CoreEvent, et: ElementTree.Element[str]):
+    def register_trigger(self, core_event: core.CoreEvent, et: ElementTree.Element[str]):
         for et_interrupt in et.iterfind("Interrupt"):
             pin = str(et_interrupt.text)
             self.exti_triggers[pin].append(core_event.event_name)
 
-    def add_action(self, core_event: core.CoreEvent, et: ElementTree.Element[str]):
+    def register_action(self, core_event: core.CoreEvent, et: ElementTree.Element[str]):
         for et_action in et.iterfind("*"):
             action_type = ActionType(et_action.tag)
             self.actions[core_event.event_name].append(Action(pin=str(et_action.text), action_type=action_type))
 
-    def write_input_interface_functions(self, writer: CodeWriter):
+    def write_triggers(self, writer: CodeWriter):
         if len(self.exti_triggers) == 0:
             return
 
@@ -72,7 +72,7 @@ class ModuleHalGpio(common.GeneratorModule):
             writer.add_line(f"case {pin}{self.settings.pin_suffix}:")
             writer.indent()
             for event_name in event_names:
-                writer.add_line(f"NewIncomingEventISR({event_name}, tick, &xHigherPriorityTaskWoken);")
+                writer.add_line(f"QueueNewIncomingEventFromISR({event_name}, tick, &xHigherPriorityTaskWoken);")
             writer.add_switch_break()
 
         writer.close_brace()

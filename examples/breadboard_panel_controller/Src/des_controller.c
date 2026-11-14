@@ -768,7 +768,7 @@ void TraceTaskSwitchedOut(TaskNumber_t) {};
 
 QueueHandle_t EventQueue;
 
-static inline void NewIncomingEventISR(EventIdx_t eventIdx, TickType_t tick, BaseType_t *xHigherPriorityTaskWoken)
+static inline void QueueNewIncomingEventFromISR(EventIdx_t eventIdx, TickType_t tick, BaseType_t *xHigherPriorityTaskWoken)
 {
   TraceIncomingEventReceivedFromISR(eventIdx, tick);
   struct TimeStampedEvent incomingEvent = { .idx = eventIdx, .tick = tick };
@@ -788,7 +788,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   switch (GPIO_Pin)
   {
     case BUTTON_1_Pin:
-      NewIncomingEventISR(EVENT_1, tick, &xHigherPriorityTaskWoken);
+      QueueNewIncomingEventFromISR(EVENT_1, tick, &xHigherPriorityTaskWoken);
       break;
   }
   portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
@@ -896,7 +896,7 @@ bool NetGetNextEnabledCommand(TickType_t currentTick, struct TimeStampedCommand 
 /** Core variables, tasks and helper functions. **/
 
 TaskHandle_t TaskEventLoopHandle;
-TimerHandle_t TimerScheduleCommandHandle;
+TimerHandle_t TimerScheduledCommandHandle;
 
 void TaskEventLoop(void*)
 {
@@ -909,7 +909,7 @@ void TaskEventLoop(void*)
     for (EventIdx_t eventIdx = 0; eventIdx < CORE_EVENT_COUNT; ++eventIdx)
       NetUpdateTransitionEnabledTime(eventIdx, startTick);
 
-    // Set priority for timer task (TimerScheduleCommand).
+    // Set priority for timer task (TimerScheduledCommand).
     vTaskPrioritySet(xTimerGetTimerDaemonTaskHandle(), CORE_SCHEDULE_COMMAND_TASK_PRIORITY);
 #ifdef CORE_ENABLE_TRACE
     vTaskSetTaskNumber(xTimerGetTimerDaemonTaskHandle(), TASK_NUMBER_TIMER);
@@ -951,8 +951,8 @@ void TaskEventLoop(void*)
       {
         // Command isn't enabled yet: schedule execution.
         const TickType_t period = command.tick - currentTick;
-        configASSERT(pdPASS == xTimerChangePeriod(TimerScheduleCommandHandle, period, portMAX_DELAY));
-        configASSERT(pdPASS == xTimerStart(TimerScheduleCommandHandle, portMAX_DELAY));
+        configASSERT(pdPASS == xTimerChangePeriod(TimerScheduledCommandHandle, period, portMAX_DELAY));
+        configASSERT(pdPASS == xTimerStart(TimerScheduledCommandHandle, portMAX_DELAY));
         TraceOutgoingCommandQueued(command.idx, command.tick);
         break;
       }
@@ -977,13 +977,13 @@ void TaskEventLoop(void*)
     }
 
     // Cancel pending command timer, if any.
-    configASSERT(pdPASS == xTimerStop(TimerScheduleCommandHandle, portMAX_DELAY));
+    configASSERT(pdPASS == xTimerStop(TimerScheduledCommandHandle, portMAX_DELAY));
   }
 }
 
-void TimerScheduleCommand(TimerHandle_t timerHandle)
+void TimerScheduledCommand(TimerHandle_t timerHandle)
 {
-  if (timerHandle != TimerScheduleCommandHandle)
+  if (timerHandle != TimerScheduledCommandHandle)
     // Prevent execution by user code.
     return;
 
@@ -1000,7 +1000,7 @@ void DesControllerSetup(void)
   configASSERT(NULL != (EventQueue = xQueueCreate(CORE_EVENT_QUEUE_SIZE, sizeof(struct TimeStampedEvent))));
 
   configASSERT(pdPASS == xTaskCreate(TaskEventLoop, CORE_EVENT_LOOP_TASK_NAME, CORE_EVENT_LOOP_TASK_SDEPTH, NULL, CORE_EVENT_LOOP_TASK_PRIORITY, &TaskEventLoopHandle));
-  configASSERT(NULL != (TimerScheduleCommandHandle = xTimerCreate(CORE_SCHEDULE_COMMAND_TASK_NAME, portMAX_DELAY, pdFALSE, NULL, TimerScheduleCommand)));
+  configASSERT(NULL != (TimerScheduledCommandHandle = xTimerCreate(CORE_SCHEDULE_COMMAND_TASK_NAME, portMAX_DELAY, pdFALSE, NULL, TimerScheduledCommand)));
 
 #ifdef CORE_ENABLE_TRACE
   configASSERT(pdPASS == xTaskCreate(TaskTraceLoop, CORE_TRACE_LOOP_TASK_NAME, CORE_TRACE_LOOP_TASK_SDEPTH, NULL, CORE_TRACE_LOOP_TASK_PRIORITY, &TaskTraceLoopHandle));

@@ -43,7 +43,7 @@ class GeneratorSpec:
         for et_module in tree.iterfind("Modules/*"):
             module_name = et_module.tag
             module = modules.get_module_from_name(module_name)()
-            module.update_settings_from_element_tree(et_module)
+            module.parse_settings_from_element_tree(et_module)
             self.modules[module_name] = module
 
         for et_event in tree.iterfind("Events/Event"):
@@ -58,14 +58,14 @@ class GeneratorSpec:
                         module = self.modules[et_action.tag]
                     except KeyError:
                         raise ValueError(f"uninitialized module: {et_action.tag}") from None
-                    module.add_action(core_event, et_action)
+                    module.register_action(core_event, et_action)
 
             for et_trigger in et_event.iterfind("Triggers/*"):
                 try:
                     module = self.modules[et_trigger.tag]
                 except KeyError:
                     raise ValueError(f"uninitialized module: {et_trigger.tag}") from None
-                module.add_trigger(core_event, et_trigger)
+                module.register_trigger(core_event, et_trigger)
 
 
 def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
@@ -200,11 +200,11 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         module_variables_cw.add_line(f"/* END MODULE {module.name()} VARIABLES */")
 
         module_input_interface_functions_cw.add_line(f"/* START MODULE {module.name()} INPUT INTERFACE FUNCTIONS */")
-        module.write_input_interface_functions(module_input_interface_functions_cw)
+        module.write_triggers(module_input_interface_functions_cw)
         module_input_interface_functions_cw.add_line(f"/* END MODULE {module.name()} INPUT INTERFACE FUNCTIONS */")
 
         module_init_function_calls_cw.add_line(f"/* START MODULE {module.name()} INIT FUNCTION CALLS */")
-        module.write_init_function_calls(module_init_function_calls_cw)
+        module.write_init(module_init_function_calls_cw)
         module_init_function_calls_cw.add_line(f"/* END MODULE {module.name()} INIT FUNCTION CALLS */")
 
     # Finalize.

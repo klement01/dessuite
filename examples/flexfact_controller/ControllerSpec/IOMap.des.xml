@@ -19,6 +19,7 @@
 			<PortSuffix>_GPIO_Port</PortSuffix>
 		</HalGpio>
 		<HalUart>
+			<AutoEnumerate/>
 			<Handle>huart1</Handle>
 		</HalUart>
 	</Modules>

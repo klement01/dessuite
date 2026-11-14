@@ -739,7 +739,7 @@ void TraceTaskSwitchedOut(TaskNumber_t) {};
 
 QueueHandle_t EventQueue;
 
-static inline void NewIncomingEventISR(EventIdx_t eventIdx, TickType_t tick, BaseType_t *xHigherPriorityTaskWoken)
+static inline void QueueNewIncomingEventFromISR(EventIdx_t eventIdx, TickType_t tick, BaseType_t *xHigherPriorityTaskWoken)
 {
   TraceIncomingEventReceivedFromISR(eventIdx, tick);
   struct TimeStampedEvent incomingEvent = { .idx = eventIdx, .tick = tick };
@@ -762,25 +762,25 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   switch (huart1_recv_buffer)
   {
     case 0:
-      NewIncomingEventISR(EVENT_7, tick, &xHigherPriorityTaskWoken);
+      QueueNewIncomingEventFromISR(EVENT_7, tick, &xHigherPriorityTaskWoken);
       break;
     case 1:
-      NewIncomingEventISR(EVENT_10, tick, &xHigherPriorityTaskWoken);
+      QueueNewIncomingEventFromISR(EVENT_10, tick, &xHigherPriorityTaskWoken);
       break;
     case 2:
-      NewIncomingEventISR(EVENT_11, tick, &xHigherPriorityTaskWoken);
+      QueueNewIncomingEventFromISR(EVENT_11, tick, &xHigherPriorityTaskWoken);
       break;
     case 3:
-      NewIncomingEventISR(EVENT_2, tick, &xHigherPriorityTaskWoken);
+      QueueNewIncomingEventFromISR(EVENT_2, tick, &xHigherPriorityTaskWoken);
       break;
     case 4:
-      NewIncomingEventISR(EVENT_3, tick, &xHigherPriorityTaskWoken);
+      QueueNewIncomingEventFromISR(EVENT_3, tick, &xHigherPriorityTaskWoken);
       break;
     case 5:
-      NewIncomingEventISR(EVENT_12, tick, &xHigherPriorityTaskWoken);
+      QueueNewIncomingEventFromISR(EVENT_12, tick, &xHigherPriorityTaskWoken);
       break;
     case 6:
-      NewIncomingEventISR(EVENT_13, tick, &xHigherPriorityTaskWoken);
+      QueueNewIncomingEventFromISR(EVENT_13, tick, &xHigherPriorityTaskWoken);
       break;
   }
   HAL_UART_Receive_IT(&huart1, &huart1_recv_buffer, sizeof(huart1_recv_buffer));
@@ -889,7 +889,7 @@ bool NetGetNextEnabledCommand(TickType_t currentTick, struct TimeStampedCommand 
 /** Core variables, tasks and helper functions. **/
 
 TaskHandle_t TaskEventLoopHandle;
-TimerHandle_t TimerScheduleCommandHandle;
+TimerHandle_t TimerScheduledCommandHandle;
 
 void TaskEventLoop(void*)
 {
@@ -902,7 +902,7 @@ void TaskEventLoop(void*)
     for (EventIdx_t eventIdx = 0; eventIdx < CORE_EVENT_COUNT; ++eventIdx)
       NetUpdateTransitionEnabledTime(eventIdx, startTick);
 
-    // Set priority for timer task (TimerScheduleCommand).
+    // Set priority for timer task (TimerScheduledCommand).
     vTaskPrioritySet(xTimerGetTimerDaemonTaskHandle(), CORE_SCHEDULE_COMMAND_TASK_PRIORITY);
 #ifdef CORE_ENABLE_TRACE
     vTaskSetTaskNumber(xTimerGetTimerDaemonTaskHandle(), TASK_NUMBER_TIMER);
@@ -944,8 +944,8 @@ void TaskEventLoop(void*)
       {
         // Command isn't enabled yet: schedule execution.
         const TickType_t period = command.tick - currentTick;
-        configASSERT(pdPASS == xTimerChangePeriod(TimerScheduleCommandHandle, period, portMAX_DELAY));
-        configASSERT(pdPASS == xTimerStart(TimerScheduleCommandHandle, portMAX_DELAY));
+        configASSERT(pdPASS == xTimerChangePeriod(TimerScheduledCommandHandle, period, portMAX_DELAY));
+        configASSERT(pdPASS == xTimerStart(TimerScheduledCommandHandle, portMAX_DELAY));
         TraceOutgoingCommandQueued(command.idx, command.tick);
         break;
       }
@@ -970,13 +970,13 @@ void TaskEventLoop(void*)
     }
 
     // Cancel pending command timer, if any.
-    configASSERT(pdPASS == xTimerStop(TimerScheduleCommandHandle, portMAX_DELAY));
+    configASSERT(pdPASS == xTimerStop(TimerScheduledCommandHandle, portMAX_DELAY));
   }
 }
 
-void TimerScheduleCommand(TimerHandle_t timerHandle)
+void TimerScheduledCommand(TimerHandle_t timerHandle)
 {
-  if (timerHandle != TimerScheduleCommandHandle)
+  if (timerHandle != TimerScheduledCommandHandle)
     // Prevent execution by user code.
     return;
 
@@ -993,7 +993,7 @@ void DesControllerSetup(void)
   configASSERT(NULL != (EventQueue = xQueueCreate(CORE_EVENT_QUEUE_SIZE, sizeof(struct TimeStampedEvent))));
 
   configASSERT(pdPASS == xTaskCreate(TaskEventLoop, CORE_EVENT_LOOP_TASK_NAME, CORE_EVENT_LOOP_TASK_SDEPTH, NULL, CORE_EVENT_LOOP_TASK_PRIORITY, &TaskEventLoopHandle));
-  configASSERT(NULL != (TimerScheduleCommandHandle = xTimerCreate(CORE_SCHEDULE_COMMAND_TASK_NAME, portMAX_DELAY, pdFALSE, NULL, TimerScheduleCommand)));
+  configASSERT(NULL != (TimerScheduledCommandHandle = xTimerCreate(CORE_SCHEDULE_COMMAND_TASK_NAME, portMAX_DELAY, pdFALSE, NULL, TimerScheduledCommand)));
 
 #ifdef CORE_ENABLE_TRACE
   configASSERT(pdPASS == xTaskCreate(TaskTraceLoop, CORE_TRACE_LOOP_TASK_NAME, CORE_TRACE_LOOP_TASK_SDEPTH, NULL, CORE_TRACE_LOOP_TASK_PRIORITY, &TaskTraceLoopHandle));
