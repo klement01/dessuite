@@ -1,6 +1,6 @@
 #include "des_controller.h"
 
-// #define CORE_ENABLE_TRACE
+#define CORE_ENABLE_TRACE
 
 #include <stdbool.h>
 #include <stddef.h>
