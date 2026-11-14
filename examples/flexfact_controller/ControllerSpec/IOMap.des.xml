@@ -82,6 +82,10 @@
 		</Event>
 		<!-- Commands -->
 		<Event>
+			<Name>sf1_fdgone</Name>
+			<Controllable/>
+		</Event>
+		<Event>
 			<Name>sf1_fdon</Name>
 			<Controllable/>
 			<Actions>

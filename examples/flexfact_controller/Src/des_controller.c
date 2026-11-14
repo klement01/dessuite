@@ -49,8 +49,8 @@
 
 /* Petri Net definition. */
 
-#define CORE_EVENT_COUNT (13)
-#define CORE_COMMAND_COUNT (6)
+#define CORE_EVENT_COUNT (14)
+#define CORE_COMMAND_COUNT (7)
 #define CORE_PLACE_COUNT (11)
 
 typedef uint8_t EventIdx_t;
@@ -67,13 +67,14 @@ enum EventIdx : EventIdx_t
   EVENT_3, // cb1_wplv
   EVENT_4, // op_l1off
   EVENT_5, // op_l1on
-  EVENT_6, // sf1_fdhome
-  EVENT_7, // sf1_fdoff
-  EVENT_8, // sf1_fdon
-  EVENT_9, // sf1_wpar
-  EVENT_10, // sf1_wplv
-  EVENT_11, // xs1_wpar
-  EVENT_12, // xs1_wplv
+  EVENT_6, // sf1_fdgone
+  EVENT_7, // sf1_fdhome
+  EVENT_8, // sf1_fdoff
+  EVENT_9, // sf1_fdon
+  EVENT_10, // sf1_wpar
+  EVENT_11, // sf1_wplv
+  EVENT_12, // xs1_wpar
+  EVENT_13, // xs1_wplv
   EVENT_SCHEDULED_COMMAND
 };
 
@@ -167,7 +168,7 @@ const struct TransitionArc EVENT_3_DELTA_ARCS[2] = {
   {2, -1},
   {3, 1}
 };
-const EventIdx_t EVENT_3_AFFECTED_TRANSITIONS[3] = {1, 3, 11};
+const EventIdx_t EVENT_3_AFFECTED_TRANSITIONS[3] = {1, 3, 12};
 
 const struct TransitionArc EVENT_4_INHIBITOR_ARCS[1] = {
   {10, 1}
@@ -191,91 +192,101 @@ const struct TransitionArc EVENT_5_DELTA_ARCS[1] = {
 };
 const EventIdx_t EVENT_5_AFFECTED_TRANSITIONS[2] = {4, 5};
 
-const struct TransitionArc EVENT_6_INHIBITOR_ARCS[1] = {
+const struct TransitionArc EVENT_6_INHIBITOR_ARCS[0] = {};
+const struct TransitionArc EVENT_6_INPUT_ARCS[1] = {
   {9, 1}
 };
-const struct TransitionArc EVENT_6_INPUT_ARCS[0] = {};
 const struct TransitionArc EVENT_6_DELTA_ARCS[1] = {
+  {9, -1}
+};
+const EventIdx_t EVENT_6_AFFECTED_TRANSITIONS[3] = {6, 7, 8};
+
+const struct TransitionArc EVENT_7_INHIBITOR_ARCS[1] = {
   {9, 1}
 };
-const EventIdx_t EVENT_6_AFFECTED_TRANSITIONS[2] = {6, 7};
+const struct TransitionArc EVENT_7_INPUT_ARCS[0] = {};
+const struct TransitionArc EVENT_7_DELTA_ARCS[1] = {
+  {9, 1}
+};
+const EventIdx_t EVENT_7_AFFECTED_TRANSITIONS[3] = {6, 7, 8};
 
-const struct TransitionArc EVENT_7_INHIBITOR_ARCS[0] = {};
-const struct TransitionArc EVENT_7_INPUT_ARCS[2] = {
+const struct TransitionArc EVENT_8_INHIBITOR_ARCS[0] = {};
+const struct TransitionArc EVENT_8_INPUT_ARCS[2] = {
   {6, 1},
   {9, 1}
 };
-const struct TransitionArc EVENT_7_DELTA_ARCS[3] = {
+const struct TransitionArc EVENT_8_DELTA_ARCS[3] = {
   {5, 1},
   {6, -1},
   {9, -1}
 };
-const EventIdx_t EVENT_7_AFFECTED_TRANSITIONS[3] = {6, 7, 8};
+const EventIdx_t EVENT_8_AFFECTED_TRANSITIONS[4] = {6, 7, 8, 9};
 
-const struct TransitionArc EVENT_8_INHIBITOR_ARCS[1] = {
+const struct TransitionArc EVENT_9_INHIBITOR_ARCS[1] = {
   {10, 1}
 };
-const struct TransitionArc EVENT_8_INPUT_ARCS[2] = {
+const struct TransitionArc EVENT_9_INPUT_ARCS[2] = {
   {5, 1},
   {7, 1}
 };
-const struct TransitionArc EVENT_8_DELTA_ARCS[2] = {
+const struct TransitionArc EVENT_9_DELTA_ARCS[2] = {
   {5, -1},
   {6, 1}
 };
-const EventIdx_t EVENT_8_AFFECTED_TRANSITIONS[2] = {7, 8};
-
-const struct TransitionArc EVENT_9_INHIBITOR_ARCS[0] = {};
-const struct TransitionArc EVENT_9_INPUT_ARCS[0] = {};
-const struct TransitionArc EVENT_9_DELTA_ARCS[1] = {
-  {7, 1}
-};
-const EventIdx_t EVENT_9_AFFECTED_TRANSITIONS[2] = {8, 10};
+const EventIdx_t EVENT_9_AFFECTED_TRANSITIONS[2] = {8, 9};
 
 const struct TransitionArc EVENT_10_INHIBITOR_ARCS[0] = {};
-const struct TransitionArc EVENT_10_INPUT_ARCS[1] = {
+const struct TransitionArc EVENT_10_INPUT_ARCS[0] = {};
+const struct TransitionArc EVENT_10_DELTA_ARCS[1] = {
   {7, 1}
 };
-const struct TransitionArc EVENT_10_DELTA_ARCS[2] = {
-  {7, -1},
-  {8, 1}
-};
-const EventIdx_t EVENT_10_AFFECTED_TRANSITIONS[5] = {0, 1, 2, 8, 10};
+const EventIdx_t EVENT_10_AFFECTED_TRANSITIONS[2] = {9, 11};
 
 const struct TransitionArc EVENT_11_INHIBITOR_ARCS[0] = {};
 const struct TransitionArc EVENT_11_INPUT_ARCS[1] = {
-  {3, 1}
+  {7, 1}
 };
 const struct TransitionArc EVENT_11_DELTA_ARCS[2] = {
-  {3, -1},
-  {10, 1}
+  {7, -1},
+  {8, 1}
 };
-const EventIdx_t EVENT_11_AFFECTED_TRANSITIONS[7] = {0, 1, 4, 5, 8, 11, 12};
+const EventIdx_t EVENT_11_AFFECTED_TRANSITIONS[5] = {0, 1, 2, 9, 11};
 
 const struct TransitionArc EVENT_12_INHIBITOR_ARCS[0] = {};
 const struct TransitionArc EVENT_12_INPUT_ARCS[1] = {
+  {3, 1}
+};
+const struct TransitionArc EVENT_12_DELTA_ARCS[2] = {
+  {3, -1},
   {10, 1}
 };
-const struct TransitionArc EVENT_12_DELTA_ARCS[1] = {
+const EventIdx_t EVENT_12_AFFECTED_TRANSITIONS[7] = {0, 1, 4, 5, 9, 12, 13};
+
+const struct TransitionArc EVENT_13_INHIBITOR_ARCS[0] = {};
+const struct TransitionArc EVENT_13_INPUT_ARCS[1] = {
+  {10, 1}
+};
+const struct TransitionArc EVENT_13_DELTA_ARCS[1] = {
   {10, -1}
 };
-const EventIdx_t EVENT_12_AFFECTED_TRANSITIONS[5] = {0, 4, 5, 8, 12};
+const EventIdx_t EVENT_13_AFFECTED_TRANSITIONS[5] = {0, 4, 5, 9, 13};
 
 const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
 {
-  {1, 2, 2, 2, EVENT_0_INHIBITOR_ARCS, EVENT_0_INPUT_ARCS, EVENT_0_DELTA_ARCS, EVENT_0_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
-  {3, 1, 2, 2, EVENT_1_INHIBITOR_ARCS, EVENT_1_INPUT_ARCS, EVENT_1_DELTA_ARCS, EVENT_1_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
+  {1, 2, 2, 2, EVENT_0_INHIBITOR_ARCS, EVENT_0_INPUT_ARCS, EVENT_0_DELTA_ARCS, EVENT_0_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), pdMS_TO_TICKS(5U)-1},
+  {3, 1, 2, 2, EVENT_1_INHIBITOR_ARCS, EVENT_1_INPUT_ARCS, EVENT_1_DELTA_ARCS, EVENT_1_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), pdMS_TO_TICKS(5U)-1},
   {0, 1, 2, 4, EVENT_2_INHIBITOR_ARCS, EVENT_2_INPUT_ARCS, EVENT_2_DELTA_ARCS, EVENT_2_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
   {0, 1, 2, 3, EVENT_3_INHIBITOR_ARCS, EVENT_3_INPUT_ARCS, EVENT_3_DELTA_ARCS, EVENT_3_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
   {1, 1, 1, 2, EVENT_4_INHIBITOR_ARCS, EVENT_4_INPUT_ARCS, EVENT_4_DELTA_ARCS, EVENT_4_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
-  {1, 1, 1, 2, EVENT_5_INHIBITOR_ARCS, EVENT_5_INPUT_ARCS, EVENT_5_DELTA_ARCS, EVENT_5_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(2000U), portMAX_DELAY},
-  {1, 0, 1, 2, EVENT_6_INHIBITOR_ARCS, EVENT_6_INPUT_ARCS, EVENT_6_DELTA_ARCS, EVENT_6_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
-  {0, 2, 3, 3, EVENT_7_INHIBITOR_ARCS, EVENT_7_INPUT_ARCS, EVENT_7_DELTA_ARCS, EVENT_7_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
-  {1, 2, 2, 2, EVENT_8_INHIBITOR_ARCS, EVENT_8_INPUT_ARCS, EVENT_8_DELTA_ARCS, EVENT_8_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
-  {0, 0, 1, 2, EVENT_9_INHIBITOR_ARCS, EVENT_9_INPUT_ARCS, EVENT_9_DELTA_ARCS, EVENT_9_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
-  {0, 1, 2, 5, EVENT_10_INHIBITOR_ARCS, EVENT_10_INPUT_ARCS, EVENT_10_DELTA_ARCS, EVENT_10_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
-  {0, 1, 2, 7, EVENT_11_INHIBITOR_ARCS, EVENT_11_INPUT_ARCS, EVENT_11_DELTA_ARCS, EVENT_11_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
-  {0, 1, 1, 5, EVENT_12_INHIBITOR_ARCS, EVENT_12_INPUT_ARCS, EVENT_12_DELTA_ARCS, EVENT_12_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
+  {1, 1, 1, 2, EVENT_5_INHIBITOR_ARCS, EVENT_5_INPUT_ARCS, EVENT_5_DELTA_ARCS, EVENT_5_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(2000U), pdMS_TO_TICKS(2010U)-1},
+  {0, 1, 1, 3, EVENT_6_INHIBITOR_ARCS, EVENT_6_INPUT_ARCS, EVENT_6_DELTA_ARCS, EVENT_6_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(5U), portMAX_DELAY},
+  {1, 0, 1, 3, EVENT_7_INHIBITOR_ARCS, EVENT_7_INPUT_ARCS, EVENT_7_DELTA_ARCS, EVENT_7_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
+  {0, 2, 3, 4, EVENT_8_INHIBITOR_ARCS, EVENT_8_INPUT_ARCS, EVENT_8_DELTA_ARCS, EVENT_8_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), pdMS_TO_TICKS(5U)-1},
+  {1, 2, 2, 2, EVENT_9_INHIBITOR_ARCS, EVENT_9_INPUT_ARCS, EVENT_9_DELTA_ARCS, EVENT_9_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), pdMS_TO_TICKS(5U)-1},
+  {0, 0, 1, 2, EVENT_10_INHIBITOR_ARCS, EVENT_10_INPUT_ARCS, EVENT_10_DELTA_ARCS, EVENT_10_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
+  {0, 1, 2, 5, EVENT_11_INHIBITOR_ARCS, EVENT_11_INPUT_ARCS, EVENT_11_DELTA_ARCS, EVENT_11_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
+  {0, 1, 2, 7, EVENT_12_INHIBITOR_ARCS, EVENT_12_INPUT_ARCS, EVENT_12_DELTA_ARCS, EVENT_12_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
+  {0, 1, 1, 5, EVENT_13_INHIBITOR_ARCS, EVENT_13_INPUT_ARCS, EVENT_13_DELTA_ARCS, EVENT_13_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
 };
 
 
@@ -309,13 +320,16 @@ struct Command
   const void (*handler)(void);
 };
 
-void EVENT_8_COMMAND_HANDLER(void)
+void EVENT_6_COMMAND_HANDLER(void)
+{
+}
+void EVENT_9_COMMAND_HANDLER(void)
 {
   HAL_GPIO_WritePin(LED_GREEN_1_GPIO_Port, LED_GREEN_1_Pin, GPIO_PIN_RESET);
   huart1_transmit_buffer = 7;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
 }
-void EVENT_7_COMMAND_HANDLER(void)
+void EVENT_8_COMMAND_HANDLER(void)
 {
   HAL_GPIO_WritePin(LED_GREEN_1_GPIO_Port, LED_GREEN_1_Pin, GPIO_PIN_SET);
   huart1_transmit_buffer = 8;
@@ -348,8 +362,9 @@ void EVENT_4_COMMAND_HANDLER(void)
 
 const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
 {
+  {6, EVENT_6_COMMAND_HANDLER},
+  {9, EVENT_9_COMMAND_HANDLER},
   {8, EVENT_8_COMMAND_HANDLER},
-  {7, EVENT_7_COMMAND_HANDLER},
   {0, EVENT_0_COMMAND_HANDLER},
   {1, EVENT_1_COMMAND_HANDLER},
   {5, EVENT_5_COMMAND_HANDLER},
@@ -701,13 +716,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   switch (huart1_recv_buffer)
   {
     case 0:
-      NewIncomingEventISR(EVENT_6, tick, &xHigherPriorityTaskWoken);
+      NewIncomingEventISR(EVENT_7, tick, &xHigherPriorityTaskWoken);
       break;
     case 1:
-      NewIncomingEventISR(EVENT_9, tick, &xHigherPriorityTaskWoken);
+      NewIncomingEventISR(EVENT_10, tick, &xHigherPriorityTaskWoken);
       break;
     case 2:
-      NewIncomingEventISR(EVENT_10, tick, &xHigherPriorityTaskWoken);
+      NewIncomingEventISR(EVENT_11, tick, &xHigherPriorityTaskWoken);
       break;
     case 3:
       NewIncomingEventISR(EVENT_2, tick, &xHigherPriorityTaskWoken);
@@ -716,10 +731,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
       NewIncomingEventISR(EVENT_3, tick, &xHigherPriorityTaskWoken);
       break;
     case 5:
-      NewIncomingEventISR(EVENT_11, tick, &xHigherPriorityTaskWoken);
+      NewIncomingEventISR(EVENT_12, tick, &xHigherPriorityTaskWoken);
       break;
     case 6:
-      NewIncomingEventISR(EVENT_12, tick, &xHigherPriorityTaskWoken);
+      NewIncomingEventISR(EVENT_13, tick, &xHigherPriorityTaskWoken);
       break;
   }
   HAL_UART_Receive_IT(&huart1, &huart1_recv_buffer, sizeof(huart1_recv_buffer));
