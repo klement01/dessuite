@@ -117,24 +117,9 @@ const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
 };
 
 
-/** Module data (defines, types and constants). **/
-
-{MODULE_DATA}
-
-
 /** Module variables. **/
 
 {MODULE_VARIABLES}
-
-
-/** Module function definitions. **/
-
-{MODULE_FUNCTION_DEFINITIONS}
-
-
-/** Module output interface functions. **/
-
-{MODULE_OUTPUT_INTERFACE_FUNCTIONS}
 
 
 /** Core command handler. */

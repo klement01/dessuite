@@ -38,6 +38,9 @@ class ModuleHalUart(common.GeneratorModule):
     recv_triggers: dict[int, core.CoreEvent] = field(default_factory=dict)
     transmit_actions: dict[core.CoreEvent, list[int]] = field(default_factory=dict)
 
+    def name(self):
+        return "HAL UART"
+
     def update_settings_from_element_tree(self, et: ElementTree.Element[str]):
         self.settings.update_from_element_tree(et)
 

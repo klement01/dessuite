@@ -1,6 +1,10 @@
 #ifndef DES_CONTROLLER_H
 #define DES_CONTROLLER_H
 
+#include <stdint.h>
+
+typedef uint32_t TraceTickType_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */

@@ -39,6 +39,9 @@ class ModuleHalGpio(common.GeneratorModule):
     exti_triggers: defaultdict[str, list[str]] = field(default_factory=lambda: defaultdict(list))
     actions: defaultdict[str, list[Action]] = field(default_factory=lambda: defaultdict(list))
 
+    def name(self):
+        return "HAL GPIO"
+
     def update_settings_from_element_tree(self, et: ElementTree.Element[str]):
         self.settings.update_from_element_tree(et)
 

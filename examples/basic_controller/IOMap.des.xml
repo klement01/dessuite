@@ -1,11 +1,46 @@
 <Dessuite>
+	<Core>
+		<!-- Core settings -->
+		<EventQueueSize>32</EventQueueSize>
+		<Tasks>
+			<TraceLoop>
+				<Enabled>False</Enabled>
+			</TraceLoop>
+		</Tasks>
+	</Core>
+	<Modules>
+		<!-- Module settings -->
+		<HalGpio>
+			<PinSuffix>_Pin</PinSuffix>
+			<PortSuffix>_GPIO_Port</PortSuffix>
+		</HalGpio>
+		<HalUart>
+			<Handle>huart1</Handle>
+		</HalUart>
+	</Modules>
 	<Events>
 		<Event>
 			<Name>T1</Name>
 			<Controllable/>
+			<Actions>
+				<HalUart>
+					<Transmit/>
+				</HalUart>
+				<HalGpio>
+					<Set>LED</Set>
+				</HalGpio>
+			</Actions>
 		</Event>
 		<Event>
 			<Name>T2</Name>
+			<Triggers>
+				<HalUart>
+					<Receive/>
+				</HalUart>
+				<HalGpio>
+					<Interrupt>BUTTON_1</Interrupt>
+				</HalGpio>
+			</Triggers>
 		</Event>
 	</Events>
 </Dessuite>

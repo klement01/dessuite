@@ -19,6 +19,9 @@ class ModuleCustomIncludeSettings:
 class ModuleCustomInclude(common.GeneratorModule):
     settings: ModuleCustomIncludeSettings = field(default_factory=ModuleCustomIncludeSettings)
 
+    def name(self):
+        return "CUSTOM INCLUDE"
+
     def update_settings_from_element_tree(self, et: ElementTree.Element[str]):
         self.settings.update_from_element_tree(et)
 
