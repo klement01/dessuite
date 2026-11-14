@@ -1,6 +1,6 @@
 #include "des_controller.h"
 
-#define CORE_ENABLE_TRACE
+// #define CORE_ENABLE_TRACE
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -398,11 +398,12 @@ const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
 
 /** Log functions. **/
 
+typedef uint32_t TaskNumber_t;
+
 #ifdef CORE_ENABLE_TRACE
 
 typedef uint8_t TraceType_t;
 typedef uint8_t TraceQueueIdx_t;
-typedef uint32_t TaskNumber_t;
 
 enum TaskNumber : TaskNumber_t
 {
@@ -860,7 +861,9 @@ void TaskEventLoop(void*)
 
     // Set priority for timer task (TimerScheduleCommand).
     vTaskPrioritySet(xTimerGetTimerDaemonTaskHandle(), CORE_SCHEDULE_COMMAND_TASK_PRIORITY);
+#ifdef CORE_ENABLE_TRACE
     vTaskSetTaskNumber(xTimerGetTimerDaemonTaskHandle(), TASK_NUMBER_TIMER);
+#endif /* CORE_ENABLE_TRACE */
   }
 
   for (;;)
@@ -957,8 +960,8 @@ void DesControllerSetup(void)
 
 
   /* Task metadata. */
-  vTaskSetTaskNumber(TaskEventLoopHandle, TASK_NUMBER_EVENT_LOOP);
 #ifdef CORE_ENABLE_TRACE
+  vTaskSetTaskNumber(TaskEventLoopHandle, TASK_NUMBER_EVENT_LOOP);
   vTaskSetTaskNumber(TaskTraceLoopHandle, TASK_NUMBER_TRACE_LOOP);
 #endif /* CORE_ENABLE_TRACE */
 }
