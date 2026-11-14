@@ -1,6 +1,11 @@
 import enum
 
 
+class TaskNumber(enum.IntEnum):
+    EVENT_LOOP = 1
+    TIMER = enum.auto()
+    TRACE_LOOP = enum.auto()
+
 class TraceType(enum.IntEnum):
     TICK_RATE = enum.auto()
     NET_START_TICK = enum.auto()

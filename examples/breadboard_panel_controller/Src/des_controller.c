@@ -402,6 +402,14 @@ const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
 
 typedef uint8_t TraceType_t;
 typedef uint8_t TraceQueueIdx_t;
+typedef uint32_t TaskNumber_t;
+
+enum TaskNumber : TaskNumber_t
+{
+  TASK_NUMBER_EVENT_LOOP = (1),
+  TASK_NUMBER_TIMER      = (2),
+  TASK_NUMBER_TRACE_LOOP = (3)
+};
 
 enum TraceType : TraceType_t
 {
@@ -431,11 +439,11 @@ struct Trace
   union {
     struct TimeStampedEvent event;
     TickType_t startTick;
-    /* TODO */
+    TaskNumber_t taskNumber;
   } data;
 };
 
-struct TraceQueue
+struct
 {
   // https://github.com/QuantumLeaps/lock-free-ring-buffer
   struct Trace data[CORE_TRACE_QUEUE_SIZE];
@@ -505,15 +513,15 @@ void TaskTraceLoop(void*)
     struct Trace *trace;
     while (TraceQueuePop(&trace))
     {
-      printf("%lu\t%u\t", trace->traceTick, trace->traceType);
+      printf("%lu\t%u", trace->traceTick, trace->traceType);
 
       switch (trace->traceType)
       {
         case TRACE_TYPE_TICK_RATE:
-          printf("%lu\t%lu", (TraceTickType_t)configTICK_RATE_HZ, GetTraceTickRate());
+          printf("\t%lu\t%lu", (TraceTickType_t)configTICK_RATE_HZ, GetTraceTickRate());
           break;
         case TRACE_TYPE_NET_START_TICK:
-          printf("%lu",  trace->data.startTick);
+          printf("\t%lu",  trace->data.startTick);
           break;
         case TRACE_TYPE_INCOMING_EVENT_RECEIVED:
         case TRACE_TYPE_INCOMING_EVENT_ACCEPTED:
@@ -528,11 +536,11 @@ void TaskTraceLoop(void*)
         case TRACE_TYPE_OUTGOING_COMMAND_STARTED:
         case TRACE_TYPE_OUTGOING_COMMAND_FINISHED:
         case TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE:
-          printf("%lu\t%u", trace->data.event.tick, trace->data.event.idx);
+          printf("\t%lu\t%u", trace->data.event.tick, trace->data.event.idx);
           break;
         case TRACE_TYPE_TASK_SWITCHED_IN:
         case TRACE_TYPE_TASK_SWITCHED_OUT:
-          /* TODO */
+          printf("\t%lu",  trace->data.taskNumber);
           break;
         default:
           configASSERT(false);
@@ -549,7 +557,7 @@ static inline void TraceTickRate()
     .traceTick = GetTraceTickCount(),
     .traceType = TRACE_TYPE_TICK_RATE 
   };
-  TraceQueuePush(&trace);
+  configASSERT(TraceQueuePush(&trace));
 }
 
 static inline void TraceNetStartTick(TickType_t startTick)
@@ -559,7 +567,7 @@ static inline void TraceNetStartTick(TickType_t startTick)
     .traceType = TRACE_TYPE_NET_START_TICK,
     .data.startTick = startTick
   };
-  TraceQueuePush(&trace);
+  configASSERT(TraceQueuePush(&trace));
 }
 
 static inline void TraceIncomingEventReceivedFromISR(EventIdx_t eventIdx, TickType_t eventTick)
@@ -570,7 +578,7 @@ static inline void TraceIncomingEventReceivedFromISR(EventIdx_t eventIdx, TickTy
     .data.event.idx = eventIdx,
     .data.event.tick = eventTick
   };
-  TraceQueuePush(&trace);
+  configASSERT(TraceQueuePush(&trace));
 }
 
 void TraceNetUpdate(EventIdx_t eventIdx, TickType_t eventTick, bool isCommand, enum EventStatus eventStatus)
@@ -626,7 +634,7 @@ void TraceNetUpdate(EventIdx_t eventIdx, TickType_t eventTick, bool isCommand, e
     .data.event.tick = eventTick
   };
 
-  TraceQueuePush(&trace);
+  configASSERT(TraceQueuePush(&trace));
 }
 
 static inline void TraceOutgoingCommandQueued(CommandIdx_t commandIdx, TickType_t eventTick)
@@ -637,7 +645,7 @@ static inline void TraceOutgoingCommandQueued(CommandIdx_t commandIdx, TickType_
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick
   };
-  TraceQueuePush(&trace);
+  configASSERT(TraceQueuePush(&trace));
 }
 
 static inline void TraceOutgoingCommandStarted(CommandIdx_t commandIdx, TickType_t eventTick)
@@ -648,7 +656,7 @@ static inline void TraceOutgoingCommandStarted(CommandIdx_t commandIdx, TickType
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick
   };
-  TraceQueuePush(&trace);
+  configASSERT(TraceQueuePush(&trace));
 }
 
 static inline void TraceOutgoingCommandFinished(CommandIdx_t commandIdx, TickType_t eventTick)
@@ -659,7 +667,7 @@ static inline void TraceOutgoingCommandFinished(CommandIdx_t commandIdx, TickTyp
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick
   };
-  TraceQueuePush(&trace);
+  configASSERT(TraceQueuePush(&trace));
 }
 
 static inline void TraceCommandNotChosenTooLate(CommandIdx_t commandIdx, TickType_t eventTick)
@@ -670,27 +678,27 @@ static inline void TraceCommandNotChosenTooLate(CommandIdx_t commandIdx, TickTyp
     .data.event.idx = CORE_COMMANDS[commandIdx].eventIdx,
     .data.event.tick = eventTick
   };
-  TraceQueuePush(&trace);
+  configASSERT(TraceQueuePush(&trace));
 }
 
-void TraceTaskSwitchedIn()
+void TraceTaskSwitchedIn(TaskNumber_t taskNumber)
 {
   struct Trace trace = {
     .traceTick = GetTraceTickCountFromISR(),
     .traceType = TRACE_TYPE_TASK_SWITCHED_IN,
-    /* TODO */
+    .data.taskNumber = taskNumber
   };
-  TraceQueuePush(&trace);
+  configASSERT(TraceQueuePush(&trace));
 }
 
-void TraceTaskSwitchedOut()
+void TraceTaskSwitchedOut(TaskNumber_t taskNumber)
 {
   struct Trace trace = {
     .traceTick = GetTraceTickCountFromISR(),
     .traceType = TRACE_TYPE_TASK_SWITCHED_OUT,
-    /* TODO */
+    .data.taskNumber = taskNumber
   };
-  TraceQueuePush(&trace);
+  configASSERT(TraceQueuePush(&trace));
 }
 
 #else
@@ -703,8 +711,8 @@ void TraceTaskSwitchedOut()
 #define TraceOutgoingCommandStarted(a, b) do { (void)a; (void)b; } while (0)
 #define TraceOutgoingCommandFinished(a, b) do { (void)a; (void)b; } while (0)
 #define TraceCommandNotChosenTooLate(a, b) do { (void)a; (void)b; } while (0)
-void TraceTaskSwitchedIn() {};
-void TraceTaskSwitchedOut() {};
+void TraceTaskSwitchedIn(TaskNumber_t) {};
+void TraceTaskSwitchedOut(TaskNumber_t) {};
 
 #endif /* CORE_ENABLE_TRACE */
 
@@ -852,6 +860,7 @@ void TaskEventLoop(void*)
 
     // Set priority for timer task (TimerScheduleCommand).
     vTaskPrioritySet(xTimerGetTimerDaemonTaskHandle(), CORE_SCHEDULE_COMMAND_TASK_PRIORITY);
+    vTaskSetTaskNumber(xTimerGetTimerDaemonTaskHandle(), TASK_NUMBER_TIMER);
   }
 
   for (;;)
@@ -946,4 +955,10 @@ void DesControllerSetup(void)
 
   /* Module initialization. */
 
+
+  /* Task metadata. */
+  vTaskSetTaskNumber(TaskEventLoopHandle, TASK_NUMBER_EVENT_LOOP);
+#ifdef CORE_ENABLE_TRACE
+  vTaskSetTaskNumber(TaskTraceLoopHandle, TASK_NUMBER_TRACE_LOOP);
+#endif /* CORE_ENABLE_TRACE */
 }

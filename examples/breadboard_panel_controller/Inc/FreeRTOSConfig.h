@@ -148,10 +148,10 @@ standard names. */
 
 /* USER CODE BEGIN Defines */
 /* Section where parameter definitions can be added (for instance, to override default ones in FreeRTOS.h) */
-void TraceTaskSwitchedIn(void);
-void TraceTaskSwitchedOut(void);
-#define traceTASK_SWITCHED_IN() do { TraceTaskSwitchedIn(); } while (0)
-#define traceTASK_SWITCHED_OUT() do { TraceTaskSwitchedOut(); } while (0)
+void TraceTaskSwitchedIn(uint32_t taskNumber);
+void TraceTaskSwitchedOut(uint32_t taskNumber);
+#define traceTASK_SWITCHED_IN() do { TraceTaskSwitchedIn((uint32_t)pxCurrentTCB->uxTaskNumber); } while (0)
+#define traceTASK_SWITCHED_OUT() do { TraceTaskSwitchedOut((uint32_t)pxCurrentTCB->uxTaskNumber); } while (0)
 /* USER CODE END Defines */
 
 #endif /* FREERTOS_CONFIG_H */

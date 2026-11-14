@@ -7,7 +7,7 @@ from csnake import CodeWriter, Function, Variable
 import dessuite.generator_tools.c as c_files
 from dessuite.generator_tools import core, modules
 from dessuite.model import des, petri
-from dessuite.trace import TraceType
+from dessuite.trace import TaskNumber, TraceType
 
 
 @dataclass
@@ -231,6 +231,9 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         ("MODULE_INPUT_INTERFACE_FUNCTIONS", module_input_interface_functions_cw),
         ("MODULE_OUTPUT_INTERFACE_FUNCTIONS", module_output_interface_functions_cw),
         # Trace data.
+        ("TASK_NUMBER_EVENT_LOOP", TaskNumber.EVENT_LOOP),
+        ("TASK_NUMBER_TIMER", TaskNumber.TIMER),
+        ("TASK_NUMBER_TRACE_LOOP", TaskNumber.TRACE_LOOP),
         ("TRACE_TYPE_TICK_RATE", TraceType.TICK_RATE),
         ("TRACE_TYPE_NET_START_TICK", TraceType.NET_START_TICK),
         ("TRACE_TYPE_INCOMING_EVENT_RECEIVED", TraceType.INCOMING_EVENT_RECEIVED),
