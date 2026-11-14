@@ -94,9 +94,10 @@ class ModuleHalUart(common.GeneratorModule):
         writer.add_line("void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)")
         writer.open_brace()
 
+        writer.add_line("TraceInterruptStart();")
         writer.add_line("const TickType_t tick = xTaskGetTickCountFromISR();")
         writer.add_line("BaseType_t xHigherPriorityTaskWoken = pdFALSE;")
-        writer.add_line(f"if (huart != &{self.settings.handle}) portYIELD_FROM_ISR(xHigherPriorityTaskWoken);")
+        writer.add_line(f"configASSERT(huart == &{self.settings.handle});")
         writer.add_line(f"switch ({self.settings.recv_buffer})")
         writer.open_brace()
 
@@ -110,6 +111,7 @@ class ModuleHalUart(common.GeneratorModule):
         writer.add_line(
             f"HAL_UART_Receive_IT(&{self.settings.handle}, &{self.settings.recv_buffer}, sizeof({self.settings.recv_buffer}));"
         )
+        writer.add_line("TraceInterruptEnd();")
         writer.add_line("portYIELD_FROM_ISR(xHigherPriorityTaskWoken);")
 
         writer.close_brace()

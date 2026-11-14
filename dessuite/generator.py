@@ -255,6 +255,8 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         ("TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE", TraceType.COMMAND_NOT_CHOSEN_TOO_LATE),
         ("TRACE_TYPE_TASK_SWITCHED_IN", TraceType.TASK_SWITCHED_IN),
         ("TRACE_TYPE_TASK_SWITCHED_OUT", TraceType.TASK_SWITCHED_OUT),
+        ("TRACE_TYPE_INTERRUPT_START", TraceType.INTERRUPT_START),
+        ("TRACE_TYPE_INTERRUPT_END", TraceType.INTERRUPT_END),
         # Core data.
         ("CORE_COMMAND_HANDLER_FUNCTIONS", command_handler_cw),
         ("CORE_COMMAND_HANDLER_VECTOR", f",\n{' ' * INDENT}".join(command_handler_vector_entries)),

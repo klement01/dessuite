@@ -286,42 +286,15 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, LED_GREEN_2_Pin|LED_GREEN_1_Pin|LED_RED_1_Pin, GPIO_PIN_SET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, LED_WHITE_1_Pin|LED_WHITE_2_Pin|LED_GREEN_2_Pin, GPIO_PIN_SET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LED_RED_2_Pin|LED_GREEN_1_Pin|LED_RED_1_Pin, GPIO_PIN_SET);
-
-  /*Configure GPIO pin : LED_BUILTIN_Pin */
-  GPIO_InitStruct.Pin = LED_BUILTIN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LED_BUILTIN_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : LED_WHITE_1_Pin LED_WHITE_2_Pin LED_GREEN_2_Pin */
-  GPIO_InitStruct.Pin = LED_WHITE_1_Pin|LED_WHITE_2_Pin|LED_GREEN_2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : BUTTON_1_Pin BUTTON_2_Pin */
-  GPIO_InitStruct.Pin = BUTTON_1_Pin|BUTTON_2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : LED_RED_2_Pin LED_GREEN_1_Pin LED_RED_1_Pin */
-  GPIO_InitStruct.Pin = LED_RED_2_Pin|LED_GREEN_1_Pin|LED_RED_1_Pin;
+  /*Configure GPIO pins : LED_GREEN_2_Pin LED_GREEN_1_Pin LED_RED_1_Pin */
+  GPIO_InitStruct.Pin = LED_GREEN_2_Pin|LED_GREEN_1_Pin|LED_RED_1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

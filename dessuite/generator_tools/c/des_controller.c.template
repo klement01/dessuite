@@ -173,6 +173,8 @@ enum TraceType : TraceType_t
   TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE           = ({TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE}),
   TRACE_TYPE_TASK_SWITCHED_IN                      = ({TRACE_TYPE_TASK_SWITCHED_IN}),
   TRACE_TYPE_TASK_SWITCHED_OUT                     = ({TRACE_TYPE_TASK_SWITCHED_OUT}),
+  TRACE_TYPE_INTERRUPT_START                       = ({TRACE_TYPE_INTERRUPT_START}),
+  TRACE_TYPE_INTERRUPT_END                         = ({TRACE_TYPE_INTERRUPT_END}),
 };
 
 struct Trace 
@@ -286,6 +288,9 @@ void TaskTraceLoop(void*)
         case TRACE_TYPE_TASK_SWITCHED_IN:
         case TRACE_TYPE_TASK_SWITCHED_OUT:
           printf("\t%lu",  trace->data.taskNumber);
+          break;
+        case TRACE_TYPE_INTERRUPT_START:
+        case TRACE_TYPE_INTERRUPT_END:
           break;
         default:
           configASSERT(false);
@@ -446,6 +451,24 @@ void TraceTaskSwitchedOut(TaskNumber_t taskNumber)
   configASSERT(TraceQueuePush(&trace));
 }
 
+static inline void TraceInterruptStart()
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTickCountFromISR(),
+    .traceType = TRACE_TYPE_INTERRUPT_START
+  };
+  configASSERT(TraceQueuePush(&trace));
+}
+
+static inline void TraceInterruptEnd()
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTickCountFromISR(),
+    .traceType = TRACE_TYPE_INTERRUPT_END
+  };
+  configASSERT(TraceQueuePush(&trace));
+}
+
 #else
 
 #define TraceTickRate() ((void)0)
@@ -458,6 +481,8 @@ void TraceTaskSwitchedOut(TaskNumber_t taskNumber)
 #define TraceCommandNotChosenTooLate(a, b) do { (void)a; (void)b; } while (0)
 void TraceTaskSwitchedIn(TaskNumber_t) {};
 void TraceTaskSwitchedOut(TaskNumber_t) {};
+#define TraceInterruptStart() ((void)0)
+#define TraceInterruptEnd() ((void)0)
 
 #endif /* CORE_ENABLE_TRACE */
 

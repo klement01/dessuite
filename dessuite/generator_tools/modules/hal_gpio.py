@@ -63,6 +63,7 @@ class ModuleHalGpio(common.GeneratorModule):
         writer.add_line("void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)")
         writer.open_brace()
 
+        writer.add_line("TraceInterruptStart();")
         writer.add_line("const TickType_t tick = xTaskGetTickCountFromISR();")
         writer.add_line("BaseType_t xHigherPriorityTaskWoken = pdFALSE;")
         writer.add_line("switch (GPIO_Pin)")
@@ -76,6 +77,7 @@ class ModuleHalGpio(common.GeneratorModule):
             writer.add_switch_break()
 
         writer.close_brace()
+        writer.add_line("TraceInterruptEnd();")
         writer.add_line("portYIELD_FROM_ISR(xHigherPriorityTaskWoken);")
 
         writer.close_brace()

@@ -1,11 +1,11 @@
 <Dessuite>
 	<Core>
 		<!-- Core settings -->
-		<EventQueueSize>16</EventQueueSize>
+		<EventQueueSize>32</EventQueueSize>
 		<Tasks>
 			<TraceLoop>
 				<Enabled>True</Enabled>
-				<TraceQueueSize>32</TraceQueueSize>
+				<TraceQueueSize>64</TraceQueueSize>
 			</TraceLoop>
 		</Tasks>
 	</Core>
@@ -97,13 +97,14 @@
 				</HalGpio>
 			</Actions>
 		</Event>
-		<!-- GREEN R1 -->
+		<!-- LED G1 & G2 -->
 		<Event>
 			<Name>g1_cycle_on</Name>
 			<Controllable/>
 			<Actions>
 				<HalGpio>
 					<Reset>LED_GREEN_1</Reset>
+					<Set>LED_GREEN_2</Set>
 				</HalGpio>
 			</Actions>
 		</Event>
@@ -113,15 +114,7 @@
 			<Actions>
 				<HalGpio>
 					<Set>LED_GREEN_1</Set>
-				</HalGpio>
-			</Actions>
-		</Event>
-		<Event>
-			<Name>g1_turn_off</Name>
-			<Controllable/>
-			<Actions>
-				<HalGpio>
-					<Set>LED_GREEN_1</Set>
+					<Reset>LED_GREEN_2</Reset>
 				</HalGpio>
 			</Actions>
 		</Event>

@@ -36,7 +36,7 @@
 
 /* User parameters. */
 
-#define CORE_EVENT_QUEUE_SIZE (32)
+#define CORE_EVENT_QUEUE_SIZE (16)
 
 #define CORE_EVENT_LOOP_TASK_NAME ("DessuiteEventLoop")
 #define CORE_EVENT_LOOP_TASK_SDEPTH (configMINIMAL_STACK_SIZE)
@@ -46,7 +46,7 @@
 #define CORE_SCHEDULE_COMMAND_TASK_PRIORITY (configMAX_PRIORITIES - 2)
 
 #ifdef CORE_ENABLE_TRACE
-#define CORE_TRACE_QUEUE_SIZE (32)
+#define CORE_TRACE_QUEUE_SIZE (64)
 
 #define CORE_TRACE_LOOP_TASK_NAME ("DessuiteTraceLoop")
 #define CORE_TRACE_LOOP_TASK_SDEPTH (configMINIMAL_STACK_SIZE)
@@ -446,6 +446,8 @@ enum TraceType : TraceType_t
   TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE           = (16),
   TRACE_TYPE_TASK_SWITCHED_IN                      = (17),
   TRACE_TYPE_TASK_SWITCHED_OUT                     = (18),
+  TRACE_TYPE_INTERRUPT_START                       = (19),
+  TRACE_TYPE_INTERRUPT_END                         = (20),
 };
 
 struct Trace 
@@ -559,6 +561,9 @@ void TaskTraceLoop(void*)
         case TRACE_TYPE_TASK_SWITCHED_IN:
         case TRACE_TYPE_TASK_SWITCHED_OUT:
           printf("\t%lu",  trace->data.taskNumber);
+          break;
+        case TRACE_TYPE_INTERRUPT_START:
+        case TRACE_TYPE_INTERRUPT_END:
           break;
         default:
           configASSERT(false);
@@ -719,6 +724,24 @@ void TraceTaskSwitchedOut(TaskNumber_t taskNumber)
   configASSERT(TraceQueuePush(&trace));
 }
 
+static inline void TraceInterruptStart()
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTickCountFromISR(),
+    .traceType = TRACE_TYPE_INTERRUPT_START
+  };
+  configASSERT(TraceQueuePush(&trace));
+}
+
+static inline void TraceInterruptEnd()
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTickCountFromISR(),
+    .traceType = TRACE_TYPE_INTERRUPT_END
+  };
+  configASSERT(TraceQueuePush(&trace));
+}
+
 #else
 
 #define TraceTickRate() ((void)0)
@@ -731,6 +754,8 @@ void TraceTaskSwitchedOut(TaskNumber_t taskNumber)
 #define TraceCommandNotChosenTooLate(a, b) do { (void)a; (void)b; } while (0)
 void TraceTaskSwitchedIn(TaskNumber_t) {};
 void TraceTaskSwitchedOut(TaskNumber_t) {};
+#define TraceInterruptStart() ((void)0)
+#define TraceInterruptEnd() ((void)0)
 
 #endif /* CORE_ENABLE_TRACE */
 
@@ -756,9 +781,10 @@ static inline void QueueNewIncomingEventFromISR(EventIdx_t eventIdx, TickType_t 
 /* START MODULE HAL UART INPUT INTERFACE FUNCTIONS */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
+  TraceInterruptStart();
   const TickType_t tick = xTaskGetTickCountFromISR();
   BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-  if (huart != &huart1) portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+  configASSERT(huart == &huart1);
   switch (huart1_recv_buffer)
   {
     case 0:
@@ -784,6 +810,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
       break;
   }
   HAL_UART_Receive_IT(&huart1, &huart1_recv_buffer, sizeof(huart1_recv_buffer));
+  TraceInterruptEnd();
   portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 /* END MODULE HAL UART INPUT INTERFACE FUNCTIONS */
