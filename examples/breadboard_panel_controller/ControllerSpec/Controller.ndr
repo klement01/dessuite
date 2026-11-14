@@ -1,0 +1,77 @@
+a 20.0 20.0 n1 1 {Button 1 Press Detection}
+p 60.0 445.0 w1_off 1 n
+p 200.0 445.0 w1_on 0 n
+t 130.0 370.0 w1_turn_on nw 0 -11 n {} ne
+t 130.0 515.0 w1_turn_off sw 0 -11 s {} ne
+a 25.0 295.0 n4 1 {LED W1}
+p 385.0 280.0 cycle_on_2 0 s
+p 385.0 95.0 cycle_off_1 0 n
+p 560.0 280.0 cycle_on_1 0 e
+t 560.0 190.0 cycle_on_start e 0 w n {} ne
+p 560.0 95.0 cycle_off_2 1 n
+t 470.0 280.0 cycle_on_finish s 0 w n {} ne
+t 470.0 95.0 cycle_off_finish s 0 w n {} ne
+t 385.0 180.0 cycle_off_start w 0 w n {} ne
+a 335.0 20.0 n5 1 {Cycle Control}
+p 375.0 665.0 r1_off 1 n
+p 470.0 405.0 cycle_on 0 n
+p 575.0 665.0 r1_on 0 n
+t 470.0 625.0 r1_cycle_on s -501 -511 n {} ne
+t 470.0 720.0 r1_cycle_off s -501 -511 n {} ne
+t 575.0 560.0 r1_turn_off n 0 -11 e {} ne
+a 335.0 515.0 n7 1 {LED R1}
+p 45.0 145.0 b1_up 1 n
+p 220.0 155.0 b1_down 0 n
+t 130.0 215.0 b1_delay s -201 -211 n {} ne
+t 130.0 95.0 b1_press n 0 w n {} ne
+p 715.0 675.0 g1_off 1 n
+p 915.0 675.0 g1_on 0 n
+t 810.0 635.0 g1_cycle_on s -201 -211 n {} ne
+t 810.0 730.0 g1_cycle_off s -201 -211 n {} ne
+t 915.0 570.0 g1_turn_off n 0 -11 e {} ne
+a 675.0 525.0 n9 1 {LED G1}
+e b1_up b1_press 1 n
+e b1_press b1_down 1 n
+e b1_down b1_delay 1 n
+e w1_off w1_turn_on 1 n
+e w1_turn_on w1_on 1 n
+e b1_down 0.7001405474 149.2648653 w1_turn_on 0.9528032688 75.28612087 ?1 n
+e w1_on w1_turn_off 1 n
+e w1_turn_off w1_off 1 n
+e b1_down 0.7229789487 133.1646068 w1_turn_off 0.1558302757 150.6021248 ?-1 n
+e cycle_off_2 cycle_on_start 1 n
+e cycle_on_start cycle_on_1 1 n
+e cycle_on_1 cycle_on_finish 1 n
+e cycle_on_finish cycle_on_2 1 n
+e cycle_on_2 cycle_off_start 1 n
+e cycle_off_1 cycle_off_finish 1 n
+e cycle_off_start cycle_off_1 1 n
+e cycle_off_finish cycle_off_2 1 n
+e b1_down 0.01210270835 210.6086418 cycle_on_start 0.4148592557 62.76941931 ?1 n
+e b1_down 0.849549036 88.81441324 cycle_on_finish 0.2337332956 78.40918314 ?-1 n
+e b1_down cycle_off_start ?1 n
+e b1_down 0.04214698707 122.2620137 cycle_off_finish 0.6526127028 69.63476143 ?-1 n
+e cycle_on_start 0.9283443709 266.5633133 cycle_on 0.111436779 141.226768 1 n
+e cycle_on 0.4667013557 149.2548157 cycle_off_start 0.6460359684 123.4058345 1 n
+e r1_off r1_cycle_on 1 n
+e r1_cycle_on r1_on 1 n
+e r1_on r1_cycle_off 1 n
+e r1_cycle_off r1_off 1 n
+e r1_on r1_turn_off 1 n
+e r1_turn_off 0.4912878935 219.3285207 r1_off 0.2443183097 84.05355436 1 n
+e cycle_on 0.8554766771 52.0096145 r1_cycle_on 0.1329511256 56.63920903 ?1 n
+e cycle_on 0.6173226184 102.6498904 r1_cycle_off 0.3623506445 80.15609771 ?1 n
+e cycle_on r1_turn_off ?-1 n
+e b1_delay b1_up 1 n
+e cycle_on 0.02174743475 242.2581268 g1_turn_off 0.3485762844 132.6386067 ?-1 n
+e cycle_on 0.9773300259 260.6395979 g1_cycle_off 0.5 316.0 ?1 n
+e cycle_on 0.9889813467 274.6579691 g1_cycle_on 0.1329511256 56.63920903 ?1 n
+e g1_turn_off 0.4912878935 219.3285207 g1_off 0.2443183097 84.05355436 1 n
+e g1_on g1_turn_off 1 n
+e g1_cycle_off g1_off 1 n
+e g1_on g1_cycle_off 1 n
+e g1_cycle_on g1_on 1 n
+e g1_off g1_cycle_on 1 n
+h Controller normal white bezier
+
+

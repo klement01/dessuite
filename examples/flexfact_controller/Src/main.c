@@ -22,7 +22,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "trace_tick.h"
 #include "des_controller.h"
 /* USER CODE END Includes */
 
@@ -334,6 +333,10 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+TraceTickType_t GetTraceTickCount() { return customTraceTimerTick; }
+TraceTickType_t GetTraceTickCountFromISR() { return customTraceTimerTick; }
+TraceTickType_t GetTraceTickRate() { return 100000; }
+
 int __io_putchar(int ch) {
   ITM_SendChar(ch);
   return ch;

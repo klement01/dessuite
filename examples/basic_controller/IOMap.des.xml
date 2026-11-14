@@ -1,0 +1,11 @@
+<Dessuite>
+	<Events>
+		<Event>
+			<Name>T1</Name>
+			<Controllable/>
+		</Event>
+		<Event>
+			<Name>T2</Name>
+		</Event>
+	</Events>
+</Dessuite>

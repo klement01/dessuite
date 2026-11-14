@@ -7,7 +7,7 @@ from csnake import CodeWriter, Function, Variable
 import dessuite.generator_tools.c as c_files
 from dessuite.generator_tools import core, modules
 from dessuite.model import des, petri
-from dessuite.trace import TraceType
+from dessuite.trace import TaskNumber, TraceType
 
 
 @dataclass
@@ -54,11 +54,17 @@ class GeneratorSpec:
             if event_controllable:
                 self.ordered_commands.append(core_event)
                 for et_action in et_event.iterfind("Actions/*"):
-                    module = self.modules[et_action.tag]
+                    try:
+                        module = self.modules[et_action.tag]
+                    except KeyError:
+                        raise ValueError(f"uninitialized module: {et_action.tag}") from None
                     module.add_action(core_event, et_action)
 
             for et_trigger in et_event.iterfind("Triggers/*"):
-                module = self.modules[et_trigger.tag]
+                try:
+                    module = self.modules[et_trigger.tag]
+                except KeyError:
+                    raise ValueError(f"uninitialized module: {et_trigger.tag}") from None
                 module.add_trigger(core_event, et_trigger)
 
 
@@ -151,10 +157,14 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
                     input_arcs_var.name,
                     delta_arcs_var.name,
                     affected_transitions_var.name,
-                    f"pdMS_TO_TICKS({round(transition.interval.lower_limit.total_seconds() * 1e3)}U)",
+                    f"pdMS_TO_TICKS({round(transition.interval.lower.value.total_seconds() * 1e3)}U)"
+                    + ("" if transition.interval.lower.inclusive else "+1"),
                     "portMAX_DELAY"
-                    if transition.interval.upper_limit is None
-                    else f"pdMS_TO_TICKS({round(transition.interval.upper_limit.total_seconds() * 1e3)}U)",
+                    if transition.interval.upper is None
+                    else (
+                        f"pdMS_TO_TICKS({round(transition.interval.upper.value.total_seconds() * 1e3)}U)"
+                        + ("" if transition.interval.upper.inclusive else "-1")
+                    ),
                 )
             )
             + "}"
@@ -195,11 +205,7 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         # Module includes and defines.
         ("MODULE_INCLUDES", module_includes_cw),  # TODO
         # User parameters.
-        ("CORE_ENABLE_TRACE", "true" if spec.core_settings.task_trace_loop.enabled else "false"),
-        (
-            "CORE_ENABLE_CUSTOM_TRACE_CLOCK",
-            "true" if spec.core_settings.task_trace_loop.custom_trace_clock else "false",
-        ),
+        ("CORE_ENABLE_TRACE", "" if spec.core_settings.task_trace_loop.enabled else "// "),
         ("CORE_EVENT_QUEUE_SIZE", spec.core_settings.event_queue_size),
         ("CORE_EVENT_LOOP_TASK_NAME", f'"{spec.core_settings.task_event_loop.name}"'),
         ("CORE_EVENT_LOOP_TASK_SDEPTH", spec.core_settings.task_event_loop.stack_depth),
@@ -225,8 +231,12 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         ("MODULE_INPUT_INTERFACE_FUNCTIONS", module_input_interface_functions_cw),
         ("MODULE_OUTPUT_INTERFACE_FUNCTIONS", module_output_interface_functions_cw),
         # Trace data.
+        ("TASK_NUMBER_EVENT_LOOP", TaskNumber.EVENT_LOOP),
+        ("TASK_NUMBER_TIMER", TaskNumber.TIMER),
+        ("TASK_NUMBER_TRACE_LOOP", TaskNumber.TRACE_LOOP),
         ("TRACE_TYPE_TICK_RATE", TraceType.TICK_RATE),
         ("TRACE_TYPE_NET_START_TICK", TraceType.NET_START_TICK),
+        ("TRACE_TYPE_INCOMING_EVENT_RECEIVED", TraceType.INCOMING_EVENT_RECEIVED),
         ("TRACE_TYPE_INCOMING_EVENT_ACCEPTED", TraceType.INCOMING_EVENT_ACCEPTED),
         ("TRACE_TYPE_INCOMING_EVENT_DROPPED_STRUCTURALLY", TraceType.INCOMING_EVENT_DROPPED_STRUCTURALLY),
         ("TRACE_TYPE_INCOMING_EVENT_DROPPED_TOO_SOON", TraceType.INCOMING_EVENT_DROPPED_TOO_SOON),
@@ -238,6 +248,9 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         ("TRACE_TYPE_OUTGOING_COMMAND_QUEUED", TraceType.OUTGOING_COMMAND_QUEUED),
         ("TRACE_TYPE_OUTGOING_COMMAND_STARTED", TraceType.OUTGOING_COMMAND_STARTED),
         ("TRACE_TYPE_OUTGOING_COMMAND_FINISHED", TraceType.OUTGOING_COMMAND_FINISHED),
+        ("TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE", TraceType.COMMAND_NOT_CHOSEN_TOO_LATE),
+        ("TRACE_TYPE_TASK_SWITCHED_IN", TraceType.TASK_SWITCHED_IN),
+        ("TRACE_TYPE_TASK_SWITCHED_OUT", TraceType.TASK_SWITCHED_OUT),
         # Core data.
         ("CORE_COMMAND_HANDLER_FUNCTIONS", command_handler_cw),
         ("CORE_COMMAND_HANDLER_VECTOR", f",\n{' ' * INDENT}".join(command_handler_vector_entries)),

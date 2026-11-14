@@ -1,0 +1,5 @@
+tr T1 ]0,10[ P1 P2?-1 -> P2
+tr T2 ]50,w[ P2 P1?1 ->
+pl P1 (3)
+net Controller
+
