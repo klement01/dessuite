@@ -54,7 +54,7 @@ class ModuleHalUart(common.GeneratorModule):
                 try:
                     idx = int(m.text)
                 except ValueError:
-                    raise ValueError(f"invalid receive value: {m.text}")
+                    raise ValueError(f"invalid receive value: {m.text}") from None
 
             self.recv_triggers[idx] = core_event
 
@@ -70,7 +70,7 @@ class ModuleHalUart(common.GeneratorModule):
                 try:
                     idx = int(m.text)
                 except ValueError:
-                    raise ValueError(f"invalid transmit value: {m.text}")
+                    raise ValueError(f"invalid transmit value: {m.text}") from None
 
             event_actions.append(idx)
         if event_actions:

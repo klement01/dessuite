@@ -1,0 +1,95 @@
+event loop stats:
+========================================
+count: 131
+avg [ms]: 0.09
+stddev [ms]: 0.02
+median [ms]: 0.09
+max [ms]: 0.15
+
+
+timer stats:
+========================================
+count: 136
+avg [ms]: 0.04
+stddev [ms]: 0.01
+median [ms]: 0.04
+max [ms]: 0.06
+
+
+trace loop stats:
+========================================
+count: 130
+avg [ms]: 1008.72
+stddev [ms]: 1103.35
+median [ms]: 400.04
+max [ms]: 4599.75
+
+
+interrupt stats:
+========================================
+count: 125
+avg [ms]: 0.00
+stddev [ms]: 0.00
+median [ms]: 0.00
+max [ms]: 0.00
+
+
+event intervals (beta) [ms]:
+========================================
+{cb1_bm+}: 5.00
+cb1_boff: 5.00
+sf1_fdoff: 5.00
+sf1_fdon: 5.00
+op_l1off: 10.00
+op_l1on: 2010.00
+cb1_wpar: inf
+cb1_wplv: inf
+sf1_fdgone: inf
+sf1_fdhome: inf
+sf1_wpar: inf
+sf1_wplv: inf
+xs1_wpar: inf
+xs1_wplv: inf
+
+
+event intervals (beta - alpha) [ms]:
+========================================
+{cb1_bm+}: 5.00
+cb1_boff: 5.00
+sf1_fdoff: 5.00
+sf1_fdon: 5.00
+op_l1off: 10.00
+op_l1on: 10.00
+cb1_wpar: inf
+cb1_wplv: inf
+sf1_fdgone: inf
+sf1_fdhome: inf
+sf1_wpar: inf
+sf1_wplv: inf
+xs1_wpar: inf
+xs1_wplv: inf
+
+
+incoming events accepted:
+========================================
+xs1_wplv: 17
+sf1_wpar: 18
+sf1_wplv: 18
+sf1_fdhome: 18
+cb1_wpar: 18
+cb1_wplv: 18
+xs1_wpar: 18
+----------------------------------------
+total: 125
+
+
+outgoing commands accepted:
+========================================
+op_l1off: 4
+op_l1on: 5
+{cb1_bm+}: 9
+cb1_boff: 9
+sf1_fdon: 18
+sf1_fdoff: 18
+----------------------------------------
+total: 63
