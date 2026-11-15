@@ -1,3 +1,30 @@
+event loop stats:
+========================================
+count: 131
+avg [ms]: 0.09
+stddev [ms]: 0.02
+median [ms]: 0.09
+max [ms]: 0.15
+
+
+timer stats:
+========================================
+count: 136
+avg [ms]: 0.04
+stddev [ms]: 0.01
+median [ms]: 0.04
+max [ms]: 0.06
+
+
+trace loop stats:
+========================================
+count: 130
+avg [ms]: 1008.72
+stddev [ms]: 1103.35
+median [ms]: 400.04
+max [ms]: 4599.75
+
+
 interrupt stats:
 ========================================
 count: 125

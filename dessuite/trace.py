@@ -239,6 +239,20 @@ def escape_event_name(event_name: str) -> str:
     return f"{{{event_name.translate(EVENT_NAME_TRANS_TABLE)}}}"
 
 
+def get_task_timings(task_traces: list[TraceMessageTaskScheduler], task_number: TaskNumber) -> list[datetime.timedelta]:
+    task_timings: list[datetime.timedelta] = []
+    start: datetime.timedelta | None = None
+    for task_trace in task_traces:
+        if task_trace.task_number != task_number:
+            continue
+        if task_trace.type == TraceType.TASK_SWITCHED_IN:
+            start = task_trace.timestamp
+        elif task_trace.type == TraceType.TASK_SWITCHED_OUT and start:
+            task_timings.append(task_trace.timestamp - start)
+            start = None
+    return task_timings
+
+
 def get_stat_strings(timings: list[datetime.timedelta]) -> list[str]:
     timings_float = [t.total_seconds() * 1000 for t in timings]
     return [
@@ -274,15 +288,41 @@ def generate_runtime_stats(trace_file: Path, model_file: Path, out_scenario_file
     # Runtime statistics.
 
     with out_stats_file.open(mode="w", encoding="utf-8") as f:
+        # Event loop execution stats.
+        f.write("event loop stats:\n")
+        f.write("=" * 40 + "\n")
+        f.writelines(
+            get_stat_strings(get_task_timings(trace_collection.trace_messages_task_scheduler, TaskNumber.EVENT_LOOP))
+        )
+
+        f.write("\n\n")
+
+        # Timer execution stats.
+        f.write("timer stats:\n")
+        f.write("=" * 40 + "\n")
+        f.writelines(
+            get_stat_strings(get_task_timings(trace_collection.trace_messages_task_scheduler, TaskNumber.TIMER))
+        )
+
+        f.write("\n\n")
+
+        # Trace loop execution stats.
+        f.write("trace loop stats:\n")
+        f.write("=" * 40 + "\n")
+        f.writelines(
+            get_stat_strings(get_task_timings(trace_collection.trace_messages_task_scheduler, TaskNumber.TRACE_LOOP))
+        )
+
+        f.write("\n\n")
+
         # Interrupt execution stats.
         interrupt_timings: list[datetime.timedelta] = []
         interrupt_starts: list[datetime.timedelta] = []
         for interrupt_trace in trace_collection.trace_messages_interrupt:
             if interrupt_trace.type == TraceType.INTERRUPT_START:
                 interrupt_starts.append(interrupt_trace.timestamp)
-            else:
-                if interrupt_starts:
-                    interrupt_timings.append(interrupt_trace.timestamp - interrupt_starts.pop())
+            elif interrupt_trace.type == TraceType.INTERRUPT_END and interrupt_starts:
+                interrupt_timings.append(interrupt_trace.timestamp - interrupt_starts.pop())
 
         f.write("interrupt stats:\n")
         f.write("=" * 40 + "\n")
