@@ -1,41 +1,40 @@
-p 265.0 190.0 sf1_ON 0 n
-a 20.0 90.0 n0 1 {Stack Feeder}
-a 610.0 85.0 n3 1 {Conveyor Belt}
-p 845.0 190.0 cb1_ON 0 n
-t 745.0 160.0 {cb1_bm+} s 0 -6 n {} ne
-t 745.0 225.0 cb1_boff sw 0 -6 se {} ne
-p 650.0 190.0 cb1_OFF 1 n
-p 160.0 410.0 sf1_box_ON 0 n
-t 60.0 410.0 sf1_wpar s 0 w n {} ne
-t 260.0 410.0 sf1_wplv s 0 w n {} ne
-p 445.0 190.0 sf1_cb1_transit 0 n
-p 745.0 350.0 cb1_box_ON 0 n
-t 650.0 350.0 cb1_wpar n 0 w n {} ne
-t 845.0 350.0 cb1_wplv n 0 w n {} ne
-p 1025.0 195.0 cb1_xs1_transit 0 n
-t 1155.0 170.0 xs1_wpar n 0 w n {} ne
-p 1255.0 170.0 slide_box_ON 0 n
-t 1355.0 170.0 xs1_wplv n 0 w n {} ne
-a 1125.0 90.0 n2 1 {Exit Slide}
-p 160.0 325.0 sf1_pusher_home 0 n
-t 60.0 325.0 sf1_fdhome s 0 w n {} ne
-t 160.0 160.0 sf1_fdon s 0 -6 n {} ne
-p 60.0 195.0 sf1_OFF 1 n
-t 160.0 235.0 sf1_fdoff w 0 -6 e {} ne
-t 1365.0 285.0 op_l1off s 0 w n {} ne
-p 1280.0 285.0 l1_ON 0 n
-t 1200.0 285.0 op_l1on s 2000 -2011 nw {} ne
-t 270.0 325.0 sf1_fdgone s 5 w n {} ne
+p 125.0 430.0 sf1_box_ON 0 n
+t 45.0 430.0 sf1_wpar s 0 w n {} ne
+p 125.0 295.0 sf1_pusher_home 0 s
+t 45.0 295.0 sf1_fdhome n 0 w n {} ne
+t 125.0 95.0 sf1_fdon n 0 -6 s {} ne
+t 580.0 375.0 op_l1on nw 2000 -2011 s {} ne
+t 725.0 375.0 op_l1off ne 0 -11 s {} ne
+t 725.0 175.0 xs1_wplv s 0 w n {} ne
+t 580.0 175.0 xs1_wpar s 0 w n {} ne
+p 655.0 175.0 slide_box_ON 0 n
+p 655.0 375.0 l1_ON 0 n
+t 205.0 295.0 sf1_fdgone n 5 w s {} ne
+t 205.0 430.0 sf1_wplv s 0 w n {} ne
+a 20.0 20.0 n0 1 {sf1: alimentador de pilha}
+p 280.0 250.0 sf1_cb1_transit 0 n
+p 320.0 175.0 cb1_OFF 1 n
+t 395.0 100.0 {cb1_bm+} n 0 -6 s {} ne
+p 475.0 180.0 cb1_ON 0 n
+t 390.0 250.0 cb1_boff n 0 -6 s {} ne
+a 330.0 20.0 n3 1 {cb1: esteira}
+t 325.0 430.0 cb1_wpar s 0 w n {} ne
+p 390.0 430.0 cb1_box_ON 0 n
+p 500.0 250.0 cb1_xs1_transit 0 s
+t 125.0 205.0 sf1_fdoff n 0 -6 s {} ne
+p 215.0 145.0 sf1_ON 0 n
+p 45.0 145.0 sf1_OFF 1 n
+t 460.0 430.0 cb1_wplv s 0 w n {} ne
+a 565.0 20.0 n2 1 {xs1: escorregador de saída}
 e sf1_pusher_home sf1_fdgone 1 n
 e sf1_pusher_home sf1_fdoff 1 n
 e sf1_fdoff sf1_OFF 1 n
 e sf1_ON sf1_fdoff 1 n
 e sf1_fdhome sf1_pusher_home 1 n
-e sf1_pusher_home 0.4278489057 43.38202393 sf1_fdhome 0.08714723649 48.02082881 ?-1 n
+e sf1_pusher_home 0.4278489057 43.38202394 sf1_fdhome 0.08714723649 48.02082881 ?-1 n
 e xs1_wpar slide_box_ON 1 n
 e slide_box_ON xs1_wplv 1 n
 e sf1_OFF sf1_fdon 1 n
-e sf1_fdon sf1_ON 1 n
 e sf1_box_ON sf1_wplv 1 n
 e sf1_wpar sf1_box_ON 1 n
 e cb1_boff cb1_OFF 1 n
@@ -44,22 +43,23 @@ e {cb1_bm+} cb1_ON 1 n
 e cb1_OFF {cb1_bm+} 1 n
 e cb1_wpar cb1_box_ON 1 n
 e cb1_box_ON cb1_wplv 1 n
-e cb1_xs1_transit 0.5972000561 85.44588931 cb1_boff 0.9559914386 76.92203845 ?-1 n
-e sf1_cb1_transit 0.1045173156 121.2105606 {cb1_bm+} 0.4262081912 102.859127 ?1 n
-e sf1_box_ON 0.05809041024 131.6738395 sf1_fdon 0.8647930572 77.23341245 ?1 n
-e sf1_wplv 0.002180068342 73.00684899 sf1_cb1_transit 0.6821001257 96.66436775 1 n
+e cb1_xs1_transit 0.5048214016 66.03029608 cb1_boff 0.9972080953 57.00877125 ?-1 n
+e sf1_cb1_transit 0.2460951409 163.0490724 {cb1_bm+} 0.5058059977 137.0912105 ?1 n
+e sf1_box_ON 0.162599601 78.54934755 sf1_fdon 0.8717959714 105.3802638 ?1 n
+e sf1_wplv 0.0 51.0 sf1_cb1_transit 0.7525667929 124.016128 1 n
 e cb1_box_ON cb1_boff ?-1 n
-e sf1_cb1_transit 0.8975836177 100.0 cb1_boff 0.5451672353 75.0 ?-1 n
-e sf1_cb1_transit 0.8024613538 80.32434251 cb1_wpar 0.5 125.0 1 n
-e cb1_wplv 0.0 74.0 cb1_xs1_transit 0.75 101.0 1 n
+e sf1_cb1_transit 0.002094023148 76.00657866 cb1_boff 0.5035361945 45.01110974 ?-1 n
+e sf1_cb1_transit 0.8514690427 67.20119047 cb1_wpar 0.2599342622 80.15609771 1 n
+e cb1_wplv 0.1673753297 80.62257748 cb1_xs1_transit 0.7500000074 101.0 1 n
 e cb1_xs1_transit xs1_wpar 1 n
-e slide_box_ON 0.4041429917 155.3319027 {cb1_bm+} 0.08428680245 95.01578816 ?-1 n
-e slide_box_ON 0.3967091487 218.4032967 sf1_fdon 0.08462651365 295.8462438 ?-1 n
+e slide_box_ON 0.4051984806 108.7244223 {cb1_bm+} 0.9946522683 119.0672079 ?-1 n
+e slide_box_ON 0.2543296785 147.0544117 sf1_fdon 0.1213558673 92.65527511 ?-1 n
 e slide_box_ON op_l1on ?1 n
 e l1_ON op_l1off 1 n
 e slide_box_ON op_l1off ?-1 n
 e l1_ON 0.4338723791 37.16180835 op_l1on 0.06395970002 43.46262762 ?-1 n
 e op_l1on l1_ON 1 n
+e sf1_fdon sf1_ON 1 n
 h Controller normal white bezier
 
 
