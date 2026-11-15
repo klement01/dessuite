@@ -1,8 +1,9 @@
+import collections
 import dataclasses
 import datetime
 import enum
+import statistics
 import string
-import collections
 from pathlib import Path
 from typing import Final
 
@@ -238,12 +239,23 @@ def escape_event_name(event_name: str) -> str:
     return f"{{{event_name.translate(EVENT_NAME_TRANS_TABLE)}}}"
 
 
+def get_stat_strings(timings: list[datetime.timedelta]) -> list[str]:
+    timings_float = [t.total_seconds() * 1000 for t in timings]
+    return [
+        f"count: {len(timings_float)}\n",
+        f"avg [ms]: {statistics.mean(timings_float):.02f}\n",
+        f"stddev [ms]: {statistics.stdev(timings_float):.02f}\n",
+        f"median [ms]: {statistics.median(timings_float):.02f}\n",
+        f"max [ms]: {max(timings_float):.02f}\n",
+    ]
+
+
 def generate_runtime_stats(trace_file: Path, model_file: Path, out_scenario_file: Path, out_stats_file: Path):
     net = petri.Petri.import_tina_file(model_file)
     generator_spec = generator.GeneratorSpec.initialize_from_net(net)
     trace_collection = TraceCollection.import_trace_file(trace_file, generator_spec=generator_spec)
 
-    accepted_events = [
+    ACCEPTED_EVENTS: Final = [
         event_trace
         for event_trace in trace_collection.trace_messages_event
         if event_trace.type in (TraceType.INCOMING_EVENT_ACCEPTED, TraceType.OUTGOING_COMMAND_ACCEPTED)
@@ -253,35 +265,38 @@ def generate_runtime_stats(trace_file: Path, model_file: Path, out_scenario_file
     with out_scenario_file.open(mode="w", encoding="utf-8") as f:
         timer = trace_collection.trace_message_net_start.net_start_timestamp
 
-        for event_trace in accepted_events:
+        for event_trace in ACCEPTED_EVENTS:
             delay = event_trace.event_timestamp - timer
             timer = event_trace.event_timestamp
 
             f.write(f"{escape_event_name(str(event_trace.event.id))}@{delay.total_seconds() * 1000:.2f}\n")
 
-    # Runtime stats.
-    event_timings_beta = {
-        event: transition.interval.upper.value.total_seconds() * 1000 if transition.interval.upper else float("inf")
-        for event, transition in net.transitions.items()
-    }
-
-    event_timings_delta = {
-        event: (transition.interval.upper.value - transition.interval.lower.value).total_seconds() * 1000
-        if transition.interval.upper
-        else float("inf")
-        for event, transition in net.transitions.items()
-    }
-
-    accepted_incoming_events_counter = collections.Counter(
-        event_trace.event for event_trace in accepted_events if event_trace.type == TraceType.INCOMING_EVENT_ACCEPTED
-    )
-    accepted_outgoing_commands = collections.Counter(
-        event_trace.event for event_trace in accepted_events if event_trace.type == TraceType.OUTGOING_COMMAND_ACCEPTED
-    )
+    # Runtime statistics.
 
     with out_stats_file.open(mode="w", encoding="utf-8") as f:
-        # Event timings (beta).
-        f.write("event timings (beta) [ms]:\n")
+        # Interrupt execution stats.
+        interrupt_timings: list[datetime.timedelta] = []
+        interrupt_starts: list[datetime.timedelta] = []
+        for interrupt_trace in trace_collection.trace_messages_interrupt:
+            if interrupt_trace.type == TraceType.INTERRUPT_START:
+                interrupt_starts.append(interrupt_trace.timestamp)
+            else:
+                if interrupt_starts:
+                    interrupt_timings.append(interrupt_trace.timestamp - interrupt_starts.pop())
+
+        f.write("interrupt stats:\n")
+        f.write("=" * 40 + "\n")
+        f.writelines(get_stat_strings(interrupt_timings))
+
+        f.write("\n\n")
+
+        # Event intervals (beta).
+        event_timings_beta = {
+            event: transition.interval.upper.value.total_seconds() * 1000 if transition.interval.upper else float("inf")
+            for event, transition in net.transitions.items()
+        }
+
+        f.write("event intervals (beta) [ms]:\n")
         f.write("=" * 40 + "\n")
 
         for event, timing in sorted(event_timings_beta.items(), key=lambda i: i[-1]):
@@ -289,8 +304,15 @@ def generate_runtime_stats(trace_file: Path, model_file: Path, out_scenario_file
 
         f.write("\n\n")
 
-        # Event timings (beta - alpha).
-        f.write("event timings (beta - alpha) [ms]:\n")
+        # Event intervals (beta - alpha).
+        event_timings_delta = {
+            event: (transition.interval.upper.value - transition.interval.lower.value).total_seconds() * 1000
+            if transition.interval.upper
+            else float("inf")
+            for event, transition in net.transitions.items()
+        }
+
+        f.write("event intervals (beta - alpha) [ms]:\n")
         f.write("=" * 40 + "\n")
 
         for event, timing in sorted(event_timings_delta.items(), key=lambda i: i[-1]):
@@ -299,6 +321,12 @@ def generate_runtime_stats(trace_file: Path, model_file: Path, out_scenario_file
         f.write("\n\n")
 
         # Incoming event counts.
+        accepted_incoming_events_counter = collections.Counter(
+            event_trace.event
+            for event_trace in ACCEPTED_EVENTS
+            if event_trace.type == TraceType.INCOMING_EVENT_ACCEPTED
+        )
+
         f.write("incoming events accepted:\n")
         f.write("=" * 40 + "\n")
 
@@ -311,6 +339,12 @@ def generate_runtime_stats(trace_file: Path, model_file: Path, out_scenario_file
         f.write("\n\n")
 
         # Outgoing command counts.
+        accepted_outgoing_commands = collections.Counter(
+            event_trace.event
+            for event_trace in ACCEPTED_EVENTS
+            if event_trace.type == TraceType.OUTGOING_COMMAND_ACCEPTED
+        )
+
         f.write("outgoing commands accepted:\n")
         f.write("=" * 40 + "\n")
 

@@ -1,4 +1,13 @@
-event timings (beta) [ms]:
+interrupt stats:
+========================================
+count: 125
+avg [ms]: 0.00
+stddev [ms]: 0.00
+median [ms]: 0.00
+max [ms]: 0.00
+
+
+event intervals (beta) [ms]:
 ========================================
 {cb1_bm+}: 5.00
 cb1_boff: 5.00
@@ -16,7 +25,7 @@ xs1_wpar: inf
 xs1_wplv: inf
 
 
-event timings (beta - alpha) [ms]:
+event intervals (beta - alpha) [ms]:
 ========================================
 {cb1_bm+}: 5.00
 cb1_boff: 5.00
