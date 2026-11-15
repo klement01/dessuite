@@ -23,14 +23,20 @@
 
 /** Module includes and defines. **/
 
+/* START MODULE CUSTOM INCLUDE INCLUDES */
 #include "main.h"
+/* END MODULE CUSTOM INCLUDE INCLUDES */
+/* START MODULE HAL GPIO INCLUDES */
+/* END MODULE HAL GPIO INCLUDES */
+/* START MODULE HAL UART INCLUDES */
+/* END MODULE HAL UART INCLUDES */
 
 
 /** Core data (defines, types and constants). **/
 
 /* User parameters. */
 
-#define CORE_EVENT_QUEUE_SIZE (32)
+#define CORE_EVENT_QUEUE_SIZE (16)
 
 #define CORE_EVENT_LOOP_TASK_NAME ("DessuiteEventLoop")
 #define CORE_EVENT_LOOP_TASK_SDEPTH (configMINIMAL_STACK_SIZE)
@@ -40,7 +46,7 @@
 #define CORE_SCHEDULE_COMMAND_TASK_PRIORITY (configMAX_PRIORITIES - 2)
 
 #ifdef CORE_ENABLE_TRACE
-#define CORE_TRACE_QUEUE_SIZE (32)
+#define CORE_TRACE_QUEUE_SIZE (64)
 
 #define CORE_TRACE_LOOP_TASK_NAME ("DessuiteTraceLoop")
 #define CORE_TRACE_LOOP_TASK_SDEPTH (configMINIMAL_STACK_SIZE)
@@ -277,7 +283,7 @@ const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
   {3, 1, 2, 2, EVENT_1_INHIBITOR_ARCS, EVENT_1_INPUT_ARCS, EVENT_1_DELTA_ARCS, EVENT_1_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), pdMS_TO_TICKS(5U)-1},
   {0, 1, 2, 4, EVENT_2_INHIBITOR_ARCS, EVENT_2_INPUT_ARCS, EVENT_2_DELTA_ARCS, EVENT_2_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
   {0, 1, 2, 3, EVENT_3_INHIBITOR_ARCS, EVENT_3_INPUT_ARCS, EVENT_3_DELTA_ARCS, EVENT_3_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
-  {1, 1, 1, 2, EVENT_4_INHIBITOR_ARCS, EVENT_4_INPUT_ARCS, EVENT_4_DELTA_ARCS, EVENT_4_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
+  {1, 1, 1, 2, EVENT_4_INHIBITOR_ARCS, EVENT_4_INPUT_ARCS, EVENT_4_DELTA_ARCS, EVENT_4_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), pdMS_TO_TICKS(10U)-1},
   {1, 1, 1, 2, EVENT_5_INHIBITOR_ARCS, EVENT_5_INPUT_ARCS, EVENT_5_DELTA_ARCS, EVENT_5_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(2000U), pdMS_TO_TICKS(2010U)-1},
   {0, 1, 1, 3, EVENT_6_INHIBITOR_ARCS, EVENT_6_INPUT_ARCS, EVENT_6_DELTA_ARCS, EVENT_6_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(5U), portMAX_DELAY},
   {1, 0, 1, 3, EVENT_7_INHIBITOR_ARCS, EVENT_7_INPUT_ARCS, EVENT_7_DELTA_ARCS, EVENT_7_AFFECTED_TRANSITIONS, pdMS_TO_TICKS(0U), portMAX_DELAY},
@@ -290,26 +296,17 @@ const struct EventTransition CORE_EVENT_TRANSITIONS[CORE_EVENT_COUNT] =
 };
 
 
-/** Module data (defines, types and constants). **/
-
-
-
-
 /** Module variables. **/
 
+/* START MODULE CUSTOM INCLUDE VARIABLES */
+/* END MODULE CUSTOM INCLUDE VARIABLES */
+/* START MODULE HAL GPIO VARIABLES */
+/* END MODULE HAL GPIO VARIABLES */
+/* START MODULE HAL UART VARIABLES */
 extern UART_HandleTypeDef huart1;
 uint8_t huart1_recv_buffer;
 uint8_t huart1_transmit_buffer;
-
-
-/** Module function definitions. **/
-
-
-
-
-/** Module output interface functions. **/
-
-
+/* END MODULE HAL UART VARIABLES */
 
 
 /** Core command handler. */
@@ -322,42 +319,84 @@ struct Command
 
 void EVENT_6_COMMAND_HANDLER(void)
 {
+  /* START MODULE CUSTOM INCLUDE ACTIONS */
+  /* END MODULE CUSTOM INCLUDE ACTIONS */
+  /* START MODULE HAL GPIO ACTIONS */
+  /* END MODULE HAL GPIO ACTIONS */
+  /* START MODULE HAL UART ACTIONS */
+  /* END MODULE HAL UART ACTIONS */
 }
 void EVENT_9_COMMAND_HANDLER(void)
 {
+  /* START MODULE CUSTOM INCLUDE ACTIONS */
+  /* END MODULE CUSTOM INCLUDE ACTIONS */
+  /* START MODULE HAL GPIO ACTIONS */
   HAL_GPIO_WritePin(LED_GREEN_1_GPIO_Port, LED_GREEN_1_Pin, GPIO_PIN_RESET);
+  /* END MODULE HAL GPIO ACTIONS */
+  /* START MODULE HAL UART ACTIONS */
   huart1_transmit_buffer = 7;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+  /* END MODULE HAL UART ACTIONS */
 }
 void EVENT_8_COMMAND_HANDLER(void)
 {
+  /* START MODULE CUSTOM INCLUDE ACTIONS */
+  /* END MODULE CUSTOM INCLUDE ACTIONS */
+  /* START MODULE HAL GPIO ACTIONS */
   HAL_GPIO_WritePin(LED_GREEN_1_GPIO_Port, LED_GREEN_1_Pin, GPIO_PIN_SET);
+  /* END MODULE HAL GPIO ACTIONS */
+  /* START MODULE HAL UART ACTIONS */
   huart1_transmit_buffer = 8;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+  /* END MODULE HAL UART ACTIONS */
 }
 void EVENT_0_COMMAND_HANDLER(void)
 {
+  /* START MODULE CUSTOM INCLUDE ACTIONS */
+  /* END MODULE CUSTOM INCLUDE ACTIONS */
+  /* START MODULE HAL GPIO ACTIONS */
   HAL_GPIO_WritePin(LED_GREEN_2_GPIO_Port, LED_GREEN_2_Pin, GPIO_PIN_RESET);
+  /* END MODULE HAL GPIO ACTIONS */
+  /* START MODULE HAL UART ACTIONS */
   huart1_transmit_buffer = 9;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+  /* END MODULE HAL UART ACTIONS */
 }
 void EVENT_1_COMMAND_HANDLER(void)
 {
+  /* START MODULE CUSTOM INCLUDE ACTIONS */
+  /* END MODULE CUSTOM INCLUDE ACTIONS */
+  /* START MODULE HAL GPIO ACTIONS */
   HAL_GPIO_WritePin(LED_GREEN_2_GPIO_Port, LED_GREEN_2_Pin, GPIO_PIN_SET);
+  /* END MODULE HAL GPIO ACTIONS */
+  /* START MODULE HAL UART ACTIONS */
   huart1_transmit_buffer = 10;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+  /* END MODULE HAL UART ACTIONS */
 }
 void EVENT_5_COMMAND_HANDLER(void)
 {
+  /* START MODULE CUSTOM INCLUDE ACTIONS */
+  /* END MODULE CUSTOM INCLUDE ACTIONS */
+  /* START MODULE HAL GPIO ACTIONS */
   HAL_GPIO_WritePin(LED_RED_1_GPIO_Port, LED_RED_1_Pin, GPIO_PIN_RESET);
+  /* END MODULE HAL GPIO ACTIONS */
+  /* START MODULE HAL UART ACTIONS */
   huart1_transmit_buffer = 11;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+  /* END MODULE HAL UART ACTIONS */
 }
 void EVENT_4_COMMAND_HANDLER(void)
 {
+  /* START MODULE CUSTOM INCLUDE ACTIONS */
+  /* END MODULE CUSTOM INCLUDE ACTIONS */
+  /* START MODULE HAL GPIO ACTIONS */
   HAL_GPIO_WritePin(LED_RED_1_GPIO_Port, LED_RED_1_Pin, GPIO_PIN_SET);
+  /* END MODULE HAL GPIO ACTIONS */
+  /* START MODULE HAL UART ACTIONS */
   huart1_transmit_buffer = 12;
   HAL_UART_Transmit_IT(&huart1, &huart1_transmit_buffer, sizeof(huart1_transmit_buffer));;
+  /* END MODULE HAL UART ACTIONS */
 }
 
 const struct Command CORE_COMMANDS[CORE_COMMAND_COUNT] =
@@ -407,6 +446,8 @@ enum TraceType : TraceType_t
   TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE           = (16),
   TRACE_TYPE_TASK_SWITCHED_IN                      = (17),
   TRACE_TYPE_TASK_SWITCHED_OUT                     = (18),
+  TRACE_TYPE_INTERRUPT_START                       = (19),
+  TRACE_TYPE_INTERRUPT_END                         = (20),
 };
 
 struct Trace 
@@ -485,12 +526,14 @@ TaskHandle_t TaskTraceLoopHandle;
 
 void TaskTraceLoop(void*)
 {
+  uint32_t traceCount = 0;
   for (;;)
   {
     struct Trace *trace;
     while (TraceQueuePop(&trace))
     {
-      printf("%lu\t%u", trace->traceTick, trace->traceType);
+      printf("%lu\t%lu\t%u", traceCount, trace->traceTick, trace->traceType);
+      ++traceCount;
 
       switch (trace->traceType)
       {
@@ -518,6 +561,9 @@ void TaskTraceLoop(void*)
         case TRACE_TYPE_TASK_SWITCHED_IN:
         case TRACE_TYPE_TASK_SWITCHED_OUT:
           printf("\t%lu",  trace->data.taskNumber);
+          break;
+        case TRACE_TYPE_INTERRUPT_START:
+        case TRACE_TYPE_INTERRUPT_END:
           break;
         default:
           configASSERT(false);
@@ -678,6 +724,24 @@ void TraceTaskSwitchedOut(TaskNumber_t taskNumber)
   configASSERT(TraceQueuePush(&trace));
 }
 
+static inline void TraceInterruptStart()
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTickCountFromISR(),
+    .traceType = TRACE_TYPE_INTERRUPT_START
+  };
+  configASSERT(TraceQueuePush(&trace));
+}
+
+static inline void TraceInterruptEnd()
+{
+  struct Trace trace = {
+    .traceTick = GetTraceTickCountFromISR(),
+    .traceType = TRACE_TYPE_INTERRUPT_END
+  };
+  configASSERT(TraceQueuePush(&trace));
+}
+
 #else
 
 #define TraceTickRate() ((void)0)
@@ -690,6 +754,8 @@ void TraceTaskSwitchedOut(TaskNumber_t taskNumber)
 #define TraceCommandNotChosenTooLate(a, b) do { (void)a; (void)b; } while (0)
 void TraceTaskSwitchedIn(TaskNumber_t) {};
 void TraceTaskSwitchedOut(TaskNumber_t) {};
+#define TraceInterruptStart() ((void)0)
+#define TraceInterruptEnd() ((void)0)
 
 #endif /* CORE_ENABLE_TRACE */
 
@@ -698,7 +764,7 @@ void TraceTaskSwitchedOut(TaskNumber_t) {};
 
 QueueHandle_t EventQueue;
 
-static inline void NewIncomingEventISR(EventIdx_t eventIdx, TickType_t tick, BaseType_t *xHigherPriorityTaskWoken)
+static inline void QueueNewIncomingEventFromISR(EventIdx_t eventIdx, TickType_t tick, BaseType_t *xHigherPriorityTaskWoken)
 {
   TraceIncomingEventReceivedFromISR(eventIdx, tick);
   struct TimeStampedEvent incomingEvent = { .idx = eventIdx, .tick = tick };
@@ -708,38 +774,46 @@ static inline void NewIncomingEventISR(EventIdx_t eventIdx, TickType_t tick, Bas
 
 /** Module input interface functions. **/
 
+/* START MODULE CUSTOM INCLUDE INPUT INTERFACE FUNCTIONS */
+/* END MODULE CUSTOM INCLUDE INPUT INTERFACE FUNCTIONS */
+/* START MODULE HAL GPIO INPUT INTERFACE FUNCTIONS */
+/* END MODULE HAL GPIO INPUT INTERFACE FUNCTIONS */
+/* START MODULE HAL UART INPUT INTERFACE FUNCTIONS */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
+  TraceInterruptStart();
   const TickType_t tick = xTaskGetTickCountFromISR();
   BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-  if (huart != &huart1) portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+  configASSERT(huart == &huart1);
   switch (huart1_recv_buffer)
   {
     case 0:
-      NewIncomingEventISR(EVENT_7, tick, &xHigherPriorityTaskWoken);
+      QueueNewIncomingEventFromISR(EVENT_7, tick, &xHigherPriorityTaskWoken);
       break;
     case 1:
-      NewIncomingEventISR(EVENT_10, tick, &xHigherPriorityTaskWoken);
+      QueueNewIncomingEventFromISR(EVENT_10, tick, &xHigherPriorityTaskWoken);
       break;
     case 2:
-      NewIncomingEventISR(EVENT_11, tick, &xHigherPriorityTaskWoken);
+      QueueNewIncomingEventFromISR(EVENT_11, tick, &xHigherPriorityTaskWoken);
       break;
     case 3:
-      NewIncomingEventISR(EVENT_2, tick, &xHigherPriorityTaskWoken);
+      QueueNewIncomingEventFromISR(EVENT_2, tick, &xHigherPriorityTaskWoken);
       break;
     case 4:
-      NewIncomingEventISR(EVENT_3, tick, &xHigherPriorityTaskWoken);
+      QueueNewIncomingEventFromISR(EVENT_3, tick, &xHigherPriorityTaskWoken);
       break;
     case 5:
-      NewIncomingEventISR(EVENT_12, tick, &xHigherPriorityTaskWoken);
+      QueueNewIncomingEventFromISR(EVENT_12, tick, &xHigherPriorityTaskWoken);
       break;
     case 6:
-      NewIncomingEventISR(EVENT_13, tick, &xHigherPriorityTaskWoken);
+      QueueNewIncomingEventFromISR(EVENT_13, tick, &xHigherPriorityTaskWoken);
       break;
   }
   HAL_UART_Receive_IT(&huart1, &huart1_recv_buffer, sizeof(huart1_recv_buffer));
+  TraceInterruptEnd();
   portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
+/* END MODULE HAL UART INPUT INTERFACE FUNCTIONS */
 
 
 /** Petri Net variables and update functions. **/
@@ -842,7 +916,7 @@ bool NetGetNextEnabledCommand(TickType_t currentTick, struct TimeStampedCommand 
 /** Core variables, tasks and helper functions. **/
 
 TaskHandle_t TaskEventLoopHandle;
-TimerHandle_t TimerScheduleCommandHandle;
+TimerHandle_t TimerScheduledCommandHandle;
 
 void TaskEventLoop(void*)
 {
@@ -855,7 +929,7 @@ void TaskEventLoop(void*)
     for (EventIdx_t eventIdx = 0; eventIdx < CORE_EVENT_COUNT; ++eventIdx)
       NetUpdateTransitionEnabledTime(eventIdx, startTick);
 
-    // Set priority for timer task (TimerScheduleCommand).
+    // Set priority for timer task (TimerScheduledCommand).
     vTaskPrioritySet(xTimerGetTimerDaemonTaskHandle(), CORE_SCHEDULE_COMMAND_TASK_PRIORITY);
 #ifdef CORE_ENABLE_TRACE
     vTaskSetTaskNumber(xTimerGetTimerDaemonTaskHandle(), TASK_NUMBER_TIMER);
@@ -897,8 +971,8 @@ void TaskEventLoop(void*)
       {
         // Command isn't enabled yet: schedule execution.
         const TickType_t period = command.tick - currentTick;
-        configASSERT(pdPASS == xTimerChangePeriod(TimerScheduleCommandHandle, period, portMAX_DELAY));
-        configASSERT(pdPASS == xTimerStart(TimerScheduleCommandHandle, portMAX_DELAY));
+        configASSERT(pdPASS == xTimerChangePeriod(TimerScheduledCommandHandle, period, portMAX_DELAY));
+        configASSERT(pdPASS == xTimerStart(TimerScheduledCommandHandle, portMAX_DELAY));
         TraceOutgoingCommandQueued(command.idx, command.tick);
         break;
       }
@@ -923,13 +997,13 @@ void TaskEventLoop(void*)
     }
 
     // Cancel pending command timer, if any.
-    configASSERT(pdPASS == xTimerStop(TimerScheduleCommandHandle, portMAX_DELAY));
+    configASSERT(pdPASS == xTimerStop(TimerScheduledCommandHandle, portMAX_DELAY));
   }
 }
 
-void TimerScheduleCommand(TimerHandle_t timerHandle)
+void TimerScheduledCommand(TimerHandle_t timerHandle)
 {
-  if (timerHandle != TimerScheduleCommandHandle)
+  if (timerHandle != TimerScheduledCommandHandle)
     // Prevent execution by user code.
     return;
 
@@ -946,14 +1020,20 @@ void DesControllerSetup(void)
   configASSERT(NULL != (EventQueue = xQueueCreate(CORE_EVENT_QUEUE_SIZE, sizeof(struct TimeStampedEvent))));
 
   configASSERT(pdPASS == xTaskCreate(TaskEventLoop, CORE_EVENT_LOOP_TASK_NAME, CORE_EVENT_LOOP_TASK_SDEPTH, NULL, CORE_EVENT_LOOP_TASK_PRIORITY, &TaskEventLoopHandle));
-  configASSERT(NULL != (TimerScheduleCommandHandle = xTimerCreate(CORE_SCHEDULE_COMMAND_TASK_NAME, portMAX_DELAY, pdFALSE, NULL, TimerScheduleCommand)));
+  configASSERT(NULL != (TimerScheduledCommandHandle = xTimerCreate(CORE_SCHEDULE_COMMAND_TASK_NAME, portMAX_DELAY, pdFALSE, NULL, TimerScheduledCommand)));
 
 #ifdef CORE_ENABLE_TRACE
   configASSERT(pdPASS == xTaskCreate(TaskTraceLoop, CORE_TRACE_LOOP_TASK_NAME, CORE_TRACE_LOOP_TASK_SDEPTH, NULL, CORE_TRACE_LOOP_TASK_PRIORITY, &TaskTraceLoopHandle));
 #endif /* CORE_ENABLE_TRACE */
 
   /* Module initialization. */
+  /* START MODULE CUSTOM INCLUDE INIT FUNCTION CALLS */
+  /* END MODULE CUSTOM INCLUDE INIT FUNCTION CALLS */
+  /* START MODULE HAL GPIO INIT FUNCTION CALLS */
+  /* END MODULE HAL GPIO INIT FUNCTION CALLS */
+  /* START MODULE HAL UART INIT FUNCTION CALLS */
   HAL_UART_Receive_IT(&huart1, &huart1_recv_buffer, sizeof(huart1_recv_buffer));
+  /* END MODULE HAL UART INIT FUNCTION CALLS */
 
   /* Task metadata. */
 #ifdef CORE_ENABLE_TRACE

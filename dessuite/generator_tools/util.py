@@ -1,4 +1,4 @@
-def key_is_truthy(s: str | None, *, default=True) -> bool:
+def key_is_truthy(s: str | None, *, default) -> bool:
     if s is None or len(s) == 0:
         return default
     if s[0].upper() in ["1", "T", "Y"]:

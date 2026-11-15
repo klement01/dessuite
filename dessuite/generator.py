@@ -43,7 +43,7 @@ class GeneratorSpec:
         for et_module in tree.iterfind("Modules/*"):
             module_name = et_module.tag
             module = modules.get_module_from_name(module_name)()
-            module.update_settings_from_element_tree(et_module)
+            module.parse_settings_from_element_tree(et_module)
             self.modules[module_name] = module
 
         for et_event in tree.iterfind("Events/Event"):
@@ -58,14 +58,14 @@ class GeneratorSpec:
                         module = self.modules[et_action.tag]
                     except KeyError:
                         raise ValueError(f"uninitialized module: {et_action.tag}") from None
-                    module.add_action(core_event, et_action)
+                    module.register_action(core_event, et_action)
 
             for et_trigger in et_event.iterfind("Triggers/*"):
                 try:
                     module = self.modules[et_trigger.tag]
                 except KeyError:
                     raise ValueError(f"uninitialized module: {et_trigger.tag}") from None
-                module.add_trigger(core_event, et_trigger)
+                module.register_trigger(core_event, et_trigger)
 
 
 def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
@@ -176,7 +176,9 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
     for core_command in spec.ordered_commands:
         handler = Function(f"{core_command.event_name}_COMMAND_HANDLER")
         for module in spec.modules.values():
+            handler.add_code(f"/* START MODULE {module.name()} ACTIONS */")
             module.write_actions(core_command, handler)
+            handler.add_code(f"/* END MODULE {module.name()} ACTIONS */")
         command_handler_cw.add_function_definition(handler)
         command_handler_vector_entries.append(
             "{" + ", ".join(str(i) for i in (core_command.event_idx, handler.name)) + "}"
@@ -184,21 +186,26 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
 
     # Other module data.
     module_includes_cw = CodeWriter(indent=INDENT)
-    module_data_cw = CodeWriter(indent=INDENT)
     module_variables_cw = CodeWriter(indent=INDENT)
-    module_function_definitions_cw = CodeWriter(indent=INDENT)
     module_input_interface_functions_cw = CodeWriter(indent=INDENT)
-    module_output_interface_functions_cw = CodeWriter(indent=INDENT)
     module_init_function_calls_cw = CodeWriter(indent=INDENT)
     module_init_function_calls_cw.indent()
     for module in spec.modules.values():
+        module_includes_cw.add_line(f"/* START MODULE {module.name()} INCLUDES */")
         module.write_includes(module_includes_cw)
-        module.write_data(module_data_cw)
+        module_includes_cw.add_line(f"/* END MODULE {module.name()} INCLUDES */")
+
+        module_variables_cw.add_line(f"/* START MODULE {module.name()} VARIABLES */")
         module.write_variables(module_variables_cw)
-        module.write_function_definitions(module_function_definitions_cw)
-        module.write_input_interface_functions(module_input_interface_functions_cw)
-        module.write_output_interface_functions(module_output_interface_functions_cw)
-        module.write_init_function_calls(module_init_function_calls_cw)
+        module_variables_cw.add_line(f"/* END MODULE {module.name()} VARIABLES */")
+
+        module_input_interface_functions_cw.add_line(f"/* START MODULE {module.name()} INPUT INTERFACE FUNCTIONS */")
+        module.write_triggers(module_input_interface_functions_cw)
+        module_input_interface_functions_cw.add_line(f"/* END MODULE {module.name()} INPUT INTERFACE FUNCTIONS */")
+
+        module_init_function_calls_cw.add_line(f"/* START MODULE {module.name()} INIT FUNCTION CALLS */")
+        module.write_init(module_init_function_calls_cw)
+        module_init_function_calls_cw.add_line(f"/* END MODULE {module.name()} INIT FUNCTION CALLS */")
 
     # Finalize.
     template_kv_pairs = [
@@ -225,11 +232,8 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         ("CORE_EVENT_TRANSITION_VECTOR", f",\n{' ' * INDENT}".join(event_transition_vector_entries)),
         ("CORE_INITIAL_MARKINGS", ", ".join(f"{{{spec.net.initial_state[p]}}}" for p in spec.ordered_places)),
         # Module data.
-        ("MODULE_DATA", module_data_cw),
         ("MODULE_VARIABLES", module_variables_cw),
-        ("MODULE_FUNCTION_DEFINITIONS", module_function_definitions_cw),
         ("MODULE_INPUT_INTERFACE_FUNCTIONS", module_input_interface_functions_cw),
-        ("MODULE_OUTPUT_INTERFACE_FUNCTIONS", module_output_interface_functions_cw),
         # Trace data.
         ("TASK_NUMBER_EVENT_LOOP", TaskNumber.EVENT_LOOP),
         ("TASK_NUMBER_TIMER", TaskNumber.TIMER),
@@ -251,6 +255,8 @@ def generate(model_file: Path, spec_file: Path, out_c: Path, out_h: Path):
         ("TRACE_TYPE_COMMAND_NOT_CHOSEN_TOO_LATE", TraceType.COMMAND_NOT_CHOSEN_TOO_LATE),
         ("TRACE_TYPE_TASK_SWITCHED_IN", TraceType.TASK_SWITCHED_IN),
         ("TRACE_TYPE_TASK_SWITCHED_OUT", TraceType.TASK_SWITCHED_OUT),
+        ("TRACE_TYPE_INTERRUPT_START", TraceType.INTERRUPT_START),
+        ("TRACE_TYPE_INTERRUPT_END", TraceType.INTERRUPT_END),
         # Core data.
         ("CORE_COMMAND_HANDLER_FUNCTIONS", command_handler_cw),
         ("CORE_COMMAND_HANDLER_VECTOR", f",\n{' ' * INDENT}".join(command_handler_vector_entries)),

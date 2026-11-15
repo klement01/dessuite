@@ -25,3 +25,5 @@ class TraceType(enum.IntEnum):
     COMMAND_NOT_CHOSEN_TOO_LATE = enum.auto()
     TASK_SWITCHED_IN = enum.auto()
     TASK_SWITCHED_OUT = enum.auto()
+    INTERRUPT_START = enum.auto()
+    INTERRUPT_END = enum.auto()

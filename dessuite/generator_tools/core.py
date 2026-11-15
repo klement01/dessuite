@@ -70,6 +70,6 @@ class CoreSettings:
         if (m := core_settings.find("Tasks/TraceLoop")) is not None:
             self.task_trace_loop.update_from_element_tree(m)
             if (me := m.find("Enabled")) is not None:
-                self.task_trace_loop.enabled = key_is_truthy(me.text)
+                self.task_trace_loop.enabled = key_is_truthy(me.text, default=True)
             if (me := m.find("TraceQueueSize")) is not None:
                 self.task_trace_loop.queue_size = me.text  # pyright: ignore[reportAttributeAccessIssue]

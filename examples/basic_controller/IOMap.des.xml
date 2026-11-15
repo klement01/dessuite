@@ -1,11 +1,50 @@
 <Dessuite>
-	<Events>
-		<Event>
-			<Name>T1</Name>
-			<Controllable/>
-		</Event>
-		<Event>
-			<Name>T2</Name>
-		</Event>
-	</Events>
+  <Core>
+    <!-- Configurações do núcleo. -->
+    <EventQueueSize>8</EventQueueSize> <!-- Tamanho da fila de eventos. -->
+    <Tasks>
+      <TraceLoop>
+        <Enabled>True</Enabled> <!-- Habilita funcionalidade de rastreio. -->
+        <TraceQueueSize>16</TraceQueueSize> <!-- Tamanho da fila de mensagens de rastreio. -->
+      </TraceLoop>
+    </Tasks>
+  </Core>
+  <Modules>
+    <!-- Configurações dos módulos. -->
+    <HalGpio>
+      <PinSuffix>_Pin</PinSuffix> <!-- Sufixo das constantes de pinos digitais do HAL. -->
+      <PortSuffix>_GPIO_Port</PortSuffix> <!-- Sufixo das constantes de portas digitais do HAL. -->
+    </HalGpio>
+    <HalUart>
+      <Handle>huart1</Handle> <!-- Porta UART usada, corresponde à variável do HAL. -->
+    </HalUart>
+  </Modules>
+  <Events>
+    <!-- Configurações dos eventos. -->
+    <Event>
+      <!-- Especificação do evento controlável (comando) associado à transição T1 da RPT. -->
+      <Name>T1</Name>
+      <Controllable/>
+      <Actions> <!-- Ações executadas na função de tratamento. -->
+        <HalUart>
+          <Transmit>10</Transmit> <!-- Transmite byte 10 (decimal) por UART. -->
+        </HalUart>
+        <HalGpio>
+          <Set>LED</Set> <!-- Escreve valor digital alto do pino digital LED. -->
+        </HalGpio>
+      </Actions>
+    </Event>
+    <Event>
+      <!-- Especificação do evento externo associado à transição T2 da RPT. -->
+      <Name>T2</Name>
+      <Triggers>
+        <HalUart> <!-- Gatilhos que indicam recebimento do evento. -->
+          <Receive>20</Receive> <!-- Recebe byte 20 (decimal) por UART. -->
+        </HalUart>
+        <HalGpio>
+          <Interrupt>BUTTON</Interrupt> <!-- Recebe interrupção no pino digital BUTTON. -->
+        </HalGpio>
+      </Triggers>
+    </Event>
+  </Events>
 </Dessuite>

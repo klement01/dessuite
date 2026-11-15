@@ -1,11 +1,11 @@
 <Dessuite>
 	<Core>
 		<!-- Core settings -->
-		<EventQueueSize>32</EventQueueSize>
+		<EventQueueSize>16</EventQueueSize>
 		<Tasks>
 			<TraceLoop>
 				<Enabled>True</Enabled>
-				<TraceQueueSize>32</TraceQueueSize>
+				<TraceQueueSize>64</TraceQueueSize>
 			</TraceLoop>
 		</Tasks>
 	</Core>
@@ -19,6 +19,7 @@
 			<PortSuffix>_GPIO_Port</PortSuffix>
 		</HalGpio>
 		<HalUart>
+			<AutoEnumerate/>
 			<Handle>huart1</Handle>
 		</HalUart>
 	</Modules>
