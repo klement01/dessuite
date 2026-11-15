@@ -2,6 +2,7 @@ import dataclasses
 import datetime
 import enum
 import string
+import collections
 from pathlib import Path
 from typing import Final
 
@@ -237,19 +238,84 @@ def escape_event_name(event_name: str) -> str:
     return f"{{{event_name.translate(EVENT_NAME_TRANS_TABLE)}}}"
 
 
-def generate_runtime_stats(trace_file: Path, model_file: Path, out_scenario_file: Path):
+def generate_runtime_stats(trace_file: Path, model_file: Path, out_scenario_file: Path, out_stats_file: Path):
     net = petri.Petri.import_tina_file(model_file)
     generator_spec = generator.GeneratorSpec.initialize_from_net(net)
     trace_collection = TraceCollection.import_trace_file(trace_file, generator_spec=generator_spec)
 
+    accepted_events = [
+        event_trace
+        for event_trace in trace_collection.trace_messages_event
+        if event_trace.type in (TraceType.INCOMING_EVENT_ACCEPTED, TraceType.OUTGOING_COMMAND_ACCEPTED)
+    ]
+
+    # Event history.
     with out_scenario_file.open(mode="w", encoding="utf-8") as f:
         timer = trace_collection.trace_message_net_start.net_start_timestamp
 
-        for event_trace in trace_collection.trace_messages_event:
-            if event_trace.type not in (TraceType.INCOMING_EVENT_ACCEPTED, TraceType.OUTGOING_COMMAND_ACCEPTED):
-                continue
-
+        for event_trace in accepted_events:
             delay = event_trace.event_timestamp - timer
             timer = event_trace.event_timestamp
 
-            f.write(f"{escape_event_name(str(event_trace.event.id))}@{delay.total_seconds() * 1000:.02f}\n")
+            f.write(f"{escape_event_name(str(event_trace.event.id))}@{delay.total_seconds() * 1000:.2f}\n")
+
+    # Runtime stats.
+    event_timings_beta = {
+        event: transition.interval.upper.value.total_seconds() * 1000 if transition.interval.upper else float("inf")
+        for event, transition in net.transitions.items()
+    }
+
+    event_timings_delta = {
+        event: (transition.interval.upper.value - transition.interval.lower.value).total_seconds() * 1000
+        if transition.interval.upper
+        else float("inf")
+        for event, transition in net.transitions.items()
+    }
+
+    accepted_incoming_events_counter = collections.Counter(
+        event_trace.event for event_trace in accepted_events if event_trace.type == TraceType.INCOMING_EVENT_ACCEPTED
+    )
+    accepted_outgoing_commands = collections.Counter(
+        event_trace.event for event_trace in accepted_events if event_trace.type == TraceType.OUTGOING_COMMAND_ACCEPTED
+    )
+
+    with out_stats_file.open(mode="w", encoding="utf-8") as f:
+        # Event timings (beta).
+        f.write("event timings (beta) [ms]:\n")
+        f.write("=" * 40 + "\n")
+
+        for event, timing in sorted(event_timings_beta.items(), key=lambda i: i[-1]):
+            f.write(f"{escape_event_name(str(event.id))}: {timing:.2f}\n")
+
+        f.write("\n\n")
+
+        # Event timings (beta - alpha).
+        f.write("event timings (beta - alpha) [ms]:\n")
+        f.write("=" * 40 + "\n")
+
+        for event, timing in sorted(event_timings_delta.items(), key=lambda i: i[-1]):
+            f.write(f"{escape_event_name(str(event.id))}: {timing:.2f}\n")
+
+        f.write("\n\n")
+
+        # Incoming event counts.
+        f.write("incoming events accepted:\n")
+        f.write("=" * 40 + "\n")
+
+        for event, count in sorted(accepted_incoming_events_counter.items(), key=lambda i: i[-1]):
+            f.write(f"{escape_event_name(str(event.id))}: {count}\n")
+
+        f.write("-" * 40 + "\n")
+        f.write(f"total: {sum(accepted_incoming_events_counter.values())}\n")
+
+        f.write("\n\n")
+
+        # Outgoing command counts.
+        f.write("outgoing commands accepted:\n")
+        f.write("=" * 40 + "\n")
+
+        for event, count in sorted(accepted_outgoing_commands.items(), key=lambda i: i[-1]):
+            f.write(f"{escape_event_name(str(event.id))}: {count}\n")
+
+        f.write("-" * 40 + "\n")
+        f.write(f"total: {sum(accepted_outgoing_commands.values())}\n")
