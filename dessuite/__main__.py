@@ -77,7 +77,7 @@ def __main__() -> int:
     parser_trace.add_argument(
         "out_stats_file",
         type=Path,
-        help="output text (.file) with runtime statistics",
+        help="output text file with runtime statistics",
     )
 
     parser_trace.set_defaults(func=parser_trace_handler)

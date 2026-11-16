@@ -1,6 +1,6 @@
 event loop stats:
 ========================================
-count: 131
+count: 191
 avg [ms]: 0.09
 stddev [ms]: 0.02
 median [ms]: 0.09
@@ -9,29 +9,29 @@ max [ms]: 0.15
 
 timer stats:
 ========================================
-count: 136
+count: 199
 avg [ms]: 0.04
 stddev [ms]: 0.01
 median [ms]: 0.04
-max [ms]: 0.06
+max [ms]: 0.07
 
 
 trace loop stats:
 ========================================
-count: 130
-avg [ms]: 1008.72
-stddev [ms]: 1103.35
-median [ms]: 400.04
-max [ms]: 4599.75
+count: 189
+avg [ms]: 770.11
+stddev [ms]: 853.60
+median [ms]: 399.67
+max [ms]: 3959.50
 
 
 interrupt stats:
 ========================================
-count: 125
-avg [ms]: 0.00
+count: 182
+avg [ms]: 0.02
 stddev [ms]: 0.00
-median [ms]: 0.00
-max [ms]: 0.00
+median [ms]: 0.02
+max [ms]: 0.03
 
 
 event intervals (beta) [ms]:
@@ -72,24 +72,24 @@ xs1_wplv: inf
 
 incoming events accepted:
 ========================================
-xs1_wplv: 17
-sf1_wpar: 18
-sf1_wplv: 18
-sf1_fdhome: 18
-cb1_wpar: 18
-cb1_wplv: 18
-xs1_wpar: 18
+sf1_wpar: 26
+sf1_wplv: 26
+sf1_fdhome: 26
+cb1_wpar: 26
+cb1_wplv: 26
+xs1_wpar: 26
+xs1_wplv: 26
 ----------------------------------------
-total: 125
+total: 182
 
 
 outgoing commands accepted:
 ========================================
-op_l1off: 4
-op_l1on: 5
-{cb1_bm+}: 9
-cb1_boff: 9
-sf1_fdon: 18
-sf1_fdoff: 18
+{cb1_bm+}: 7
+cb1_boff: 7
+op_l1on: 8
+op_l1off: 8
+sf1_fdon: 26
+sf1_fdoff: 26
 ----------------------------------------
-total: 63
+total: 82
